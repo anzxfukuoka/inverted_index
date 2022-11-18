@@ -10,68 +10,107 @@ using System.Diagnostics.Tracing;
 using System.Text;
 using System.Text.RegularExpressions;
 
-public abstract class Doc 
+/// <summary>
+/// Stores info of specific word regarding specific document 
+/// </summary>
+public class DocInfo
 {
-    int docID;
+    /// <summary>
+    /// document id
+    /// </summary>
+    public int docID;
 
-    public Doc(int docID)
+    /// <summary>
+    /// number of occurrences of word in a doc
+    /// </summary>
+    public int occurrNumber;
+    /// <summary>
+    /// count of word in a doc
+    /// </summary>
+    public int docLenght;
+
+    /// <summary>
+    /// term frequency
+    /// </summary>
+    public double tf { get { return occurrNumber / docLenght; } }
+
+    /// <summary>
+    /// constructor
+    /// </summary>
+    /// <param name="docID">
+    /// <inheritdoc cref="DocInfo.docID" path="/summary"></inheritdoc>
+    /// </param>
+    /// <param name="occurrNumber">
+    /// <inheritdoc cref="DocInfo.occurrNumber" path="/summary"></inheritdoc>
+    /// </param>
+    /// <param name="docLenght">
+    /// <inheritdoc cref="DocInfo.docLenght" path="/summary"></inheritdoc>
+    /// </param>
+    public DocInfo(int docID, int occurrNumber, int docLenght)
     {
         this.docID = docID;
-    }
-
-    // override object.Equals
-    public override bool Equals(object obj)
-    {
-        if (obj == null)
-        {
-            return false;
-        }
-
-        //if (GetType() == obj.GetType()) 
-        //{
-        //    return base.Equals(obj);
-        //}
-
-        return ((Doc)obj).docID.Equals(this.docID);
-    }
-
-    // override object.GetHashCode
-    public override int GetHashCode()
-    {
-        //return base.GetHashCode();
-        return this.docID.GetHashCode();
-    }
-}
-
-public class DocMap : Doc
-{
-    
-    int occurrNumber; // колво вхождений слова в документ
-    int docLenght; // колво слов в документе
-
-    public DocMap(int docID, int occurrNumber, int docLenght) : base(docID)
-    {
         this.occurrNumber = occurrNumber;
         this.docLenght = docLenght;
     }
-}
 
-public class DocMetrics : Doc
-{
-    // term frequency
-    double tf = 0;
-    // inverse document frequency
-    double idf = 0;
-
-    public DocMetrics(int docID, double tf, double idf) : base(docID)
+    /// <summary>
+    /// Combies two DocInfo with same <see cref="docID"></see>
+    /// </summary>
+    /// <param name="other"></param>
+    /// <returns>Combined DocInfo</returns>
+    /// <exception cref="InvalidOperationException">thrown when objects docIDs are different</exception>
+    private DocInfo Add(DocInfo other) 
     {
-        this.tf = tf;
-        this.idf = idf;
+        if (this.docID != other.docID) 
+        {
+            throw new InvalidOperationException($"Objects docIDs are different: {this.docID} and {other.docID}");
+        }
+
+        this.occurrNumber += other.occurrNumber;
+
+        return this;
+    }
+
+    public static DocInfo operator+(DocInfo left, DocInfo right) 
+    {
+        return left.Add(right);
+    }
+}
+/// <summary>
+/// Stores info of specific word
+/// </summary>
+public class WordInfo
+{
+    /// <summary>
+    /// Lexem
+    /// </summary>
+    public string word;
+
+    /// <summary>
+    /// List of documents where word occurrs
+    /// </summary>
+    public ConcurrentBag<DocInfo> docs = new ConcurrentBag<DocInfo>();
+
+    /// <summary>
+    /// IDF metric param
+    /// </summary>
+    /// <param name="N">total number of documents</param>
+    /// <returns>Inverse document frequency</returns>
+    public double GetIDF(int N) 
+    {
+        return Math.Log(docs.Count / N);
+    }
+
+    public WordInfo(string word)
+    {
+        this.word = word;
     }
 }
 
 public class InvertedIndex 
 {
+    #region Input data params
+
     // вар
     public const int V = 34;
     
@@ -97,12 +136,10 @@ public class InvertedIndex
         @"C:\Users\Anzx\MISC\SYNC\LABS\par_course_work\datasets\aclImdb\train\unsup",
     };
 
-    //
+    #endregion
 
-    private static ConcurrentDictionary<string, ConcurrentBag<DocMap>> mapData = new ConcurrentDictionary<string, ConcurrentBag<DocMap>>();
-
-    // <docID, wordMetrics>
-    private static ConcurrentDictionary<string, HashSet<DocMetrics>> reduceData = new ConcurrentDictionary<string, HashSet<DocMetrics>>();
+    private static ConcurrentDictionary<string, WordInfo> mapData = new ConcurrentDictionary<string, WordInfo>();
+    private static ConcurrentDictionary<string, WordInfo> reduceData = new ConcurrentDictionary<string, WordInfo>();
 
     public static int Main(string[] args) 
     {
@@ -113,9 +150,9 @@ public class InvertedIndex
             Map(folder, START_INDEX_125, STOP_INDEX_125);
         }
 
-        foreach (string word in mapData.Keys) 
+        foreach (var word in mapData.Keys)
         {
-            Reduce(word);
+            Reduce(mapData[word]);
         }
 
         return 0;
@@ -148,7 +185,6 @@ public class InvertedIndex
 
     public static void Map(string folderPath, int startIndex, int stopIndex) 
     {
-
         for (int docIndex = startIndex; docIndex < stopIndex; docIndex++)
         {
             string text = GetDocByIndex(folderPath, docIndex);
@@ -173,15 +209,51 @@ public class InvertedIndex
     {
         if (!mapData.ContainsKey(word))
         {
-            mapData.TryAdd(word, new ConcurrentBag<DocMap>());
+            var newInfo = new WordInfo(word);
+            mapData.TryAdd(word, newInfo);
         }
 
-        mapData.TryGetValue(word, out var list);
-        list.Add(new DocMap(docID, 1, docLenght));
+        mapData.TryGetValue(word, out var info);
+        info.docs.Add(new DocInfo(docID, 1, docLenght));
     }
 
-    public static void Reduce(string word) 
+    public static void Reduce(WordInfo wordInfo) 
     {
-        var map = mapData[name];
+        if (!reduceData.ContainsKey(wordInfo.word))
+        {
+            reduceData.TryAdd(wordInfo.word, wordInfo);
+        }
+        else 
+        {
+            reduceData.TryGetValue(wordInfo.word, out WordInfo storedInfo);
+
+            Dictionary<int, DocInfo> data = new Dictionary<int, DocInfo>();
+
+            foreach (var docInfo in storedInfo.docs)
+            {
+                if (data.ContainsKey(docInfo.docID))
+                {
+                    data[docInfo.docID] += docInfo;
+                }
+                else
+                {
+                    data.Add(docInfo.docID, docInfo);
+                }
+            }
+
+            foreach (var docInfo in wordInfo.docs)
+            {
+                if (data.ContainsKey(docInfo.docID))
+                {
+                    data[docInfo.docID] += docInfo;
+                }
+                else 
+                {
+                    data.Add(docInfo.docID, docInfo);
+                }
+            }
+
+            storedInfo.docs = new ConcurrentBag<DocInfo>(data.Values);
+        }
     }
 }
