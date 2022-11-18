@@ -207,14 +207,25 @@ namespace InvertedIndex
         //private static ConcurrentDictionary<string, WordInfo> mapData = new ConcurrentDictionary<string, WordInfo>();
         //private static ConcurrentDictionary<string, WordInfo> reduceData = new ConcurrentDictionary<string, WordInfo>();
 
-        public static async Task<int> Main(string[] args)
+        public static int Main(string[] args)
         {
 
             //Console.WriteLine("Hello, World!");
 
-            foreach (string folder in folderPaths_125)
+            var invidx = new InvertedIndex();
+
+            //await invidx.IndexFolderAsync(folderPaths_125[0], START_INDEX_125, STOP_INDEX_125);
+            
+            var mapedData = invidx.IndexFolder(folderPaths_125[0], START_INDEX_125, START_INDEX_125 + 3);
+
+            //foreach (string folder in folderPaths_125)
+            //{
+            //    await invidx.IndexFolderAsync(folder, START_INDEX_125, STOP_INDEX_125);
+            //}
+
+            foreach (KeyValuePair<string, WordData> pair in mapedData)
             {
-                await IndexFilesAsync(folder, START_INDEX_125, STOP_INDEX_125);
+
             }
 
             //foreach (var word in mapData.Keys)
@@ -250,33 +261,46 @@ namespace InvertedIndex
             return text;
         }
 
-        public static async Task IndexFilesAsync(string folderPath, int startIndex, int stopIndex) 
+        public List<Dictionary<string, WordData>> IndexFolder(string folderPath, int startIndex, int stopIndex)
         {
-            List<Task<Dictionary<string, WordData>>> mapTasks = new List<Task<Dictionary<string, WordData>>>();
+            //List<Func<Task<Dictionary<string, WordData>>>> mapTasks = new List<Func<Task<Dictionary<string, WordData>>>>();
+            List<MapProccess<Dictionary<string, WordData>>> mapProcesses = new List<MapProccess<Dictionary<string, WordData>>>();
 
             for (int docIndex = startIndex; docIndex < stopIndex; docIndex++)
             {
                 string docContent = GetDocContentByIndex(folderPath, docIndex);
 
-                var task = new Task<Dictionary<string, WordData>>(
-                    () => Map(docIndex, docContent));
-                
-                task.Start();
+                //Func<Task<Dictionary<string, WordData>>> task = async () => { return Map(docIndex, docContent); };
 
-                mapTasks.Add(task);
+                mapProcesses.Add(new MapProccess<Dictionary<string, WordData>>(Map, docIndex, docContent));
+
+                //var task = new Task<Dictionary<string, WordData>>(
+                //    () => Map(docIndex, docContent));
+                
+                //task.Start();
+
+                //mapTasks.Add(task);
                 
             }
 
-            foreach (var task in mapTasks) 
+            List<Dictionary<string, WordData>> results = new List<Dictionary<string, WordData>>();
+
+            foreach (var process in mapProcesses) 
             {
-                await task;
+                var result = process.WaitForResult();
+                results.Add(result);
             }
 
-            Console.WriteLine(mapTasks[0].Result);
+            Console.WriteLine(results[0]);
+
+            return results;
         }
 
-        public static Dictionary<string, WordData> Map(int docId, string docContent) 
+        public Dictionary<string, WordData> Map(params object[] args) 
         {
+            int docId = (int)args[0];
+            string docContent = (string)args[1];
+
             Console.WriteLine($"doc{docId} map started");
 
             string cleanedText = Regex.Replace(docContent, @"[,]", "");
@@ -288,6 +312,8 @@ namespace InvertedIndex
             Console.WriteLine($"doc{docId} words count: {wordsCount}");
 
             Dictionary<string, WordData> mapData = new Dictionary<string, WordData>();
+
+            //Thread.Sleep((new Random()).Next(0, 10_000));
 
             for (int i = 0; i < words.Length; i++)
             {
