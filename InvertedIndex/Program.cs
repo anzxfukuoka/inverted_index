@@ -7,108 +7,12 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.Tracing;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace InvertedIndex
 {
-    ///// <summary>
-    ///// Stores info of specific word regarding specific document 
-    ///// </summary>
-    //public class DocInfo
-    //{
-    //    /// <summary>
-    //    /// document id
-    //    /// </summary>
-    //    public int docID;
-
-    //    /// <summary>
-    //    /// number of occurrences of word in a doc
-    //    /// </summary>
-    //    public int occurrNumber;
-    //    /// <summary>
-    //    /// count of word in a doc
-    //    /// </summary>
-    //    public int docLenght;
-
-    //    /// <summary>
-    //    /// term frequency
-    //    /// </summary>
-    //    public double tf { get { return occurrNumber / docLenght; } }
-
-    //    /// <summary>
-    //    /// constructor
-    //    /// </summary>
-    //    /// <param name="docID">
-    //    /// <inheritdoc cref="DocInfo.docID" path="/summary"></inheritdoc>
-    //    /// </param>
-    //    /// <param name="occurrNumber">
-    //    /// <inheritdoc cref="DocInfo.occurrNumber" path="/summary"></inheritdoc>
-    //    /// </param>
-    //    /// <param name="docLenght">
-    //    /// <inheritdoc cref="DocInfo.docLenght" path="/summary"></inheritdoc>
-    //    /// </param>
-    //    public DocInfo(int docID, int occurrNumber, int docLenght)
-    //    {
-    //        this.docID = docID;
-    //        this.occurrNumber = occurrNumber;
-    //        this.docLenght = docLenght;
-    //    }
-
-    //    /// <summary>
-    //    /// Combies two DocInfo with same <see cref="docID"></see>
-    //    /// </summary>
-    //    /// <param name="other"></param>
-    //    /// <returns>Combined DocInfo</returns>
-    //    /// <exception cref="InvalidOperationException">thrown when objects docIDs are different</exception>
-    //    private DocInfo Add(DocInfo other)
-    //    {
-    //        if (this.docID != other.docID)
-    //        {
-    //            throw new InvalidOperationException($"Objects docIDs are different: {this.docID} and {other.docID}");
-    //        }
-
-    //        this.occurrNumber += other.occurrNumber;
-
-    //        return this;
-    //    }
-
-    //    public static DocInfo operator +(DocInfo left, DocInfo right)
-    //    {
-    //        return left.Add(right);
-    //    }
-    //}
-    ///// <summary>
-    ///// Stores info of specific word
-    ///// </summary>
-    //public class WordInfo
-    //{
-    //    /// <summary>
-    //    /// Lexem
-    //    /// </summary>
-    //    public string word;
-
-    //    /// <summary>
-    //    /// List of documents where word occurrs
-    //    /// </summary>
-    //    public ConcurrentBag<DocInfo> docs = new ConcurrentBag<DocInfo>();
-
-    //    /// <summary>
-    //    /// IDF metric param
-    //    /// </summary>
-    //    /// <param name="N">total number of documents</param>
-    //    /// <returns>Inverse document frequency</returns>
-    //    public double GetIDF(int N)
-    //    {
-    //        return Math.Log(docs.Count / N);
-    //    }
-
-    //    public WordInfo(string word)
-    //    {
-    //        this.word = word;
-    //    }
-    //}
-
     /// <summary>
     /// Stores info of specific word
     /// </summary>
@@ -166,6 +70,12 @@ namespace InvertedIndex
         {
         }
 
+        public void Combine(WordData other) 
+        {
+            docs.AddRange(other.docs);
+            Console.WriteLine("new combine");
+        }
+
         public void AddDocument(int id, int occurrsCount, int wordCount) 
         {
             var doc = new Document(id, occurrsCount, wordCount);
@@ -204,34 +114,22 @@ namespace InvertedIndex
 
         #endregion
 
-        //private static ConcurrentDictionary<string, WordInfo> mapData = new ConcurrentDictionary<string, WordInfo>();
-        //private static ConcurrentDictionary<string, WordInfo> reduceData = new ConcurrentDictionary<string, WordInfo>();
-
         public static int Main(string[] args)
         {
 
-            //Console.WriteLine("Hello, World!");
-
             var invidx = new InvertedIndex();
-
-            //await invidx.IndexFolderAsync(folderPaths_125[0], START_INDEX_125, STOP_INDEX_125);
             
-            var mapedData = invidx.IndexFolder(folderPaths_125[0], START_INDEX_125, START_INDEX_125 + 3);
+            var mapedData = invidx.IndexFolder(folderPaths_125[0], START_INDEX_125, STOP_INDEX_125);
 
             //foreach (string folder in folderPaths_125)
             //{
             //    await invidx.IndexFolderAsync(folder, START_INDEX_125, STOP_INDEX_125);
             //}
 
-            foreach (KeyValuePair<string, WordData> pair in mapedData)
+            foreach (var pair in mapedData) 
             {
-
+                invidx.Reduce(pair.Key, pair.Value);
             }
-
-            //foreach (var word in mapData.Keys)
-            //{
-            //    Reduce(mapData[word]);
-            //}
 
             return 0;
         }
@@ -261,39 +159,34 @@ namespace InvertedIndex
             return text;
         }
 
-        public List<Dictionary<string, WordData>> IndexFolder(string folderPath, int startIndex, int stopIndex)
+        public Dictionary<string, List<WordData>> IndexFolder(string folderPath, int startIndex, int stopIndex)
         {
-            //List<Func<Task<Dictionary<string, WordData>>>> mapTasks = new List<Func<Task<Dictionary<string, WordData>>>>();
-            List<MapProccess<Dictionary<string, WordData>>> mapProcesses = new List<MapProccess<Dictionary<string, WordData>>>();
+            List<MapProccess<string, WordData>> mapProcesses = new List<MapProccess<string, WordData>>();
+            
+            Dictionary<string, List<WordData>> results = new Dictionary<string, List<WordData>>();
 
             for (int docIndex = startIndex; docIndex < stopIndex; docIndex++)
             {
                 string docContent = GetDocContentByIndex(folderPath, docIndex);
 
-                //Func<Task<Dictionary<string, WordData>>> task = async () => { return Map(docIndex, docContent); };
-
-                mapProcesses.Add(new MapProccess<Dictionary<string, WordData>>(Map, docIndex, docContent));
-
-                //var task = new Task<Dictionary<string, WordData>>(
-                //    () => Map(docIndex, docContent));
-                
-                //task.Start();
-
-                //mapTasks.Add(task);
-                
+                mapProcesses.Add(new MapProccess<string, WordData> (Map, ref results, docIndex, docContent));
             }
-
-            List<Dictionary<string, WordData>> results = new List<Dictionary<string, WordData>>();
 
             foreach (var process in mapProcesses) 
             {
-                var result = process.WaitForResult();
-                results.Add(result);
+                process.WaitForResult();
             }
 
-            Console.WriteLine(results[0]);
+            Console.WriteLine(results);
 
             return results;
+        }
+
+        private string CleanText(string text) 
+        {
+            string cleanedText = Regex.Replace(text, @"[,]", "");
+            cleanedText = Regex.Replace(cleanedText, @"<br />", " <br/> ");
+            return cleanedText;
         }
 
         public Dictionary<string, WordData> Map(params object[] args) 
@@ -301,10 +194,9 @@ namespace InvertedIndex
             int docId = (int)args[0];
             string docContent = (string)args[1];
 
-            Console.WriteLine($"doc{docId} map started");
+            var cleanedText = CleanText(docContent);
 
-            string cleanedText = Regex.Replace(docContent, @"[,]", "");
-            cleanedText = Regex.Replace(cleanedText, @"<br />", " <br/> ");
+            Console.WriteLine($"doc{docId} map started");
 
             string[] words = cleanedText.Split(" ");
             int wordsCount = words.Length;
@@ -341,52 +233,30 @@ namespace InvertedIndex
             return mapData;
         }
 
-        //public static void Map(string folderPath, int startIndex, int stopIndex)
-        //{
-        //    for (int docIndex = startIndex; docIndex < stopIndex; docIndex++)
-        //    {
-        //        string text = GetDocByIndex(folderPath, docIndex);
+        public Dictionary<string, WordData> Reduce(string word, List<WordData> data)
+        {
+            Dictionary<string, WordData> results = new Dictionary<string, WordData>();
 
-        //        text = Regex.Replace(text, @"[,]", "");
-        //        text = Regex.Replace(text, @"<br />", " <br/> ");
+            foreach (var dataPart in data) 
+            {
+                ProccessReduce(word, dataPart, ref results);
+            }
 
-        //        string[] words = text.Split(" ");
+            return results;
+        }
 
-        //        Console.WriteLine($"words count {words.Length}");
-
-        //        for (int i = 0; i < words.Length; i++)
-        //        {
-        //            if (!words[i].Equals(String.Empty))
-        //            {
-        //                ProcessMap(words[i], docIndex, words.Length);
-        //            }
-        //        }
-
-        //    }
-        //}
-
-        //public static async Task<Dictionary<string, WordData>> MapAsync(int docIndex, string docContent) 
-        //{
-        //    var result = await Task<Dictionary<string, WordData>>.Run(() =>
-        //    {
-                
-        //    });
-
-        //    return result;
-        //}
-
-        //public static void ProcessMap(string word, int docID, int docLenght)
-        //{
-        //    if (!mapData.ContainsKey(word))
-        //    {
-        //        var newInfo = new WordInfo(word);
-        //        mapData.TryAdd(word, newInfo);
-        //    }
-
-        //    mapData.TryGetValue(word, out var info);
-        //    info.docs.Add(new DocInfo(docID, 1, docLenght));
-        //}
-
+        public void ProccessReduce(string word, WordData data, ref Dictionary<string, WordData> results) 
+        {
+            if (results.TryGetValue(word, out var storedData))
+            {
+                storedData.Combine(data);
+            }
+            else 
+            {
+                results.Add(word, data);
+            }
+        }
+      
         //public static void Reduce(WordInfo wordInfo)
         //{
         //    if (!reduceData.ContainsKey(wordInfo.word))

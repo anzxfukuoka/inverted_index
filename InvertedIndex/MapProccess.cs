@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,39 +7,52 @@ using System.Threading.Tasks;
 
 namespace InvertedIndex
 {
-    internal class MapProccess<T>
+    internal class MapProccess<TKey, TValue>
     {
-        private T returnValue;
-
         private Thread thread;
 
-        public delegate T MapFunc (params object[] input);
+        public delegate Dictionary<TKey, TValue> MapFunc (params object[] input);
         private object[] mapFuncInput;
 
         private MapFunc mapFunc;
 
-        public delegate T a(params object[] a);
+        private Dictionary<TKey, List<TValue>> results;
 
-        public MapProccess(MapFunc mapFunc, params object[] mapFuncInput)
+        public MapProccess(MapFunc mapFunc, ref Dictionary<TKey, List<TValue>> results, params object[] mapFuncInput)
         {
             this.mapFunc = mapFunc;
 
             this.thread = new Thread(Map);
             this.mapFuncInput = mapFuncInput;
-            
+
+            this.results = results;
             
             this.thread.Start();
         }
 
-        public T WaitForResult() 
+        public void WaitForResult() 
         {
             thread.Join();
-            return returnValue;
         }
 
         public void Map() 
         {
-            returnValue = mapFunc(mapFuncInput);
+            Dictionary<TKey, TValue> returnValues = mapFunc(mapFuncInput);
+
+            foreach (KeyValuePair<TKey, TValue> pair in returnValues) 
+            {
+                var key = pair.Key;
+                var value = pair.Value; 
+
+                if (results.TryGetValue(key, out var _))
+                {
+                    results[key].Add(value);
+                }
+                else 
+                {
+                    results.Add(key, new List<TValue>() { pair.Value });
+                }
+            }
         }
     }
 }
