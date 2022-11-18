@@ -73,7 +73,7 @@ namespace InvertedIndex
         public void Combine(WordData other) 
         {
             docs.AddRange(other.docs);
-            Console.WriteLine("new combine");
+            //Console.WriteLine("new combine");
         }
 
         public void AddDocument(int id, int occurrsCount, int wordCount) 
@@ -119,60 +119,32 @@ namespace InvertedIndex
 
             var invidx = new InvertedIndex();
             
-            var mapedData = invidx.IndexFolder(folderPaths_125[0], START_INDEX_125, STOP_INDEX_125);
-
-            //foreach (string folder in folderPaths_125)
-            //{
-            //    await invidx.IndexFolderAsync(folder, START_INDEX_125, STOP_INDEX_125);
-            //}
-
-            foreach (var pair in mapedData) 
-            {
-                invidx.Reduce(pair.Key, pair.Value);
-            }
+            invidx.IndexFolder(folderPaths_125[0], START_INDEX_125, STOP_INDEX_125);
 
             return 0;
         }
 
-        private static string GetDocContentByIndex(string folderPath, int index)
+        public void IndexFolder(string folderPath, int startIndex, int stopIndex)
         {
-            string fileQuery = String.Format(QUERY_FORMAT, index);
+            var mapedData = Map(folderPath, startIndex, stopIndex);
 
-            DirectoryInfo folder = new DirectoryInfo(folderPath);
-            FileInfo[] fileEntries = folder.GetFiles(fileQuery);
-
-            FileInfo file = fileEntries[0];
-
-            if (!file.Exists)
-            {
-                throw new FileNotFoundException(String.Format("text with index {0} not found", index));
-            }
-
-            string text;
-
-            // Open the stream and read it.
-            using (StreamReader sr = file.OpenText())
-            {
-                text = sr.ReadToEnd();
-            }
-
-            return text;
+            var reducedData = Reduce(mapedData);
         }
 
-        public Dictionary<string, List<WordData>> IndexFolder(string folderPath, int startIndex, int stopIndex)
+        private Dictionary<string, List<WordData>> Map(string folderPath, int startIndex, int stopIndex) 
         {
             List<MapProccess<string, WordData>> mapProcesses = new List<MapProccess<string, WordData>>();
-            
+
             Dictionary<string, List<WordData>> results = new Dictionary<string, List<WordData>>();
 
             for (int docIndex = startIndex; docIndex < stopIndex; docIndex++)
             {
                 string docContent = GetDocContentByIndex(folderPath, docIndex);
 
-                mapProcesses.Add(new MapProccess<string, WordData> (Map, ref results, docIndex, docContent));
+                mapProcesses.Add(new MapProccess<string, WordData>(MapProccessFunc, ref results, docIndex, docContent));
             }
 
-            foreach (var process in mapProcesses) 
+            foreach (var process in mapProcesses)
             {
                 process.WaitForResult();
             }
@@ -182,14 +154,7 @@ namespace InvertedIndex
             return results;
         }
 
-        private string CleanText(string text) 
-        {
-            string cleanedText = Regex.Replace(text, @"[,]", "");
-            cleanedText = Regex.Replace(cleanedText, @"<br />", " <br/> ");
-            return cleanedText;
-        }
-
-        public Dictionary<string, WordData> Map(params object[] args) 
+        private Dictionary<string, WordData> MapProccessFunc(params object[] args) 
         {
             int docId = (int)args[0];
             string docContent = (string)args[1];
@@ -233,30 +198,75 @@ namespace InvertedIndex
             return mapData;
         }
 
-        public Dictionary<string, WordData> Reduce(string word, List<WordData> data)
+        private object Reduce(Dictionary<string, List<WordData>> mapedData)
         {
-            Dictionary<string, WordData> results = new Dictionary<string, WordData>();
+            var reduceThreads = new List<Thread>();
 
-            foreach (var dataPart in data) 
+            Dictionary<string, WordData> results = new Dictionary<string, WordData>();
+            foreach (var pair in mapedData)
             {
-                ProccessReduce(word, dataPart, ref results);
+                Thread t = new Thread(() => ReduceProcessFunc(pair.Key, pair.Value, ref results));
+                t.Start();
+
+                reduceThreads.Add(t);
+            }
+
+            foreach (var t in reduceThreads)
+            {
+                t.Join();
             }
 
             return results;
         }
 
-        public void ProccessReduce(string word, WordData data, ref Dictionary<string, WordData> results) 
+        public void ReduceProcessFunc(string word, List<WordData> data, ref Dictionary<string, WordData> results)
         {
-            if (results.TryGetValue(word, out var storedData))
+            foreach (var dataPart in data) 
             {
-                storedData.Combine(data);
-            }
-            else 
-            {
-                results.Add(word, data);
+                if (results.TryGetValue(word, out var storedData))
+                {
+                    storedData.Combine(dataPart);
+                }
+                else
+                {
+                    results.Add(word, dataPart);
+                }
             }
         }
-      
+
+        private static string GetDocContentByIndex(string folderPath, int index)
+        {
+            string fileQuery = String.Format(QUERY_FORMAT, index);
+
+            DirectoryInfo folder = new DirectoryInfo(folderPath);
+            FileInfo[] fileEntries = folder.GetFiles(fileQuery);
+
+            FileInfo file = fileEntries[0];
+
+            if (!file.Exists)
+            {
+                throw new FileNotFoundException(String.Format("text with index {0} not found", index));
+            }
+
+            string text;
+
+            // Open the stream and read it.
+            using (StreamReader sr = file.OpenText())
+            {
+                text = sr.ReadToEnd();
+            }
+
+            return text;
+        }
+
+        private string CleanText(string text)
+        {
+            string cleanedText = Regex.Replace(text, @"[,]", "");
+            cleanedText = Regex.Replace(cleanedText, @"<br />", " <br/> ");
+            return cleanedText;
+        }
+
+
         //public static void Reduce(WordInfo wordInfo)
         //{
         //    if (!reduceData.ContainsKey(wordInfo.word))

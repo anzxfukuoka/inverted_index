@@ -44,7 +44,7 @@ namespace InvertedIndex
                 var key = pair.Key;
                 var value = pair.Value; 
 
-                if (results.TryGetValue(key, out var _))
+                if (results.TryGetValue(key, out var a))
                 {
                     results[key].Add(value);
                 }
