@@ -16,9 +16,9 @@ namespace InvertedIndex
 
         private MapFunc mapFunc;
 
-        private Dictionary<TKey, List<TValue>> results;
+        private ConcurrentDictionary<TKey, List<TValue>> results;
 
-        public MapProccess(MapFunc mapFunc, ref Dictionary<TKey, List<TValue>> results, params object[] mapFuncInput)
+        public MapProccess(MapFunc mapFunc, ref ConcurrentDictionary<TKey, List<TValue>> results, params object[] mapFuncInput)
         {
             this.mapFunc = mapFunc;
 
@@ -50,7 +50,10 @@ namespace InvertedIndex
                 }
                 else 
                 {
-                    results.Add(key, new List<TValue>() { pair.Value });
+                    if (!results.TryAdd(key, new List<TValue>() { pair.Value })) 
+                    {
+                        results[key].Add(value);
+                    }
                 }
             }
         }
