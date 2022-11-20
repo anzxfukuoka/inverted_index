@@ -46,15 +46,15 @@ namespace InvertedIndex
 
         public static int Main(string[] args)
         {
-            var invidx = new InvertedIndex();
+            var indexer = new InvertedIndex();
 
-            invidx.IndexFolder(folderPaths_125[0], START_INDEX_125, STOP_INDEX_125);
+            indexer.IndexFolder(folderPaths_125[0], START_INDEX_125, STOP_INDEX_125);
 
             var query = "comedy"; // good comedy movie
 
             Console.WriteLine($"Search query: {query}");
 
-            var queryResults = invidx.FindInDocs(query);
+            var queryResults = indexer.FindInDocs(query);
 
             Console.WriteLine($"Results: \t Count: {queryResults.Count}");
 

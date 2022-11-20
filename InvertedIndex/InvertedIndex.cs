@@ -3,6 +3,7 @@
  * Вар 1 (34)
  * InvertedIndex.cs
  */
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -114,44 +115,52 @@ namespace InvertedIndex
 
             return docsList.OrderByDescending((x) => x.tf).ToList();
         }
-
-        // todo: simplify
-        private ConcurrentDictionary<string, List<WordData>> Map(string folderPath, int startIndex, int stopIndex)
+        private ConcurrentDictionary<string, List<WordData>> Map(string folderPath, int startIndex, int stopIndex, int processCount = 10)
         {
-            var mapProcesses = new List<MapProccess<string, WordData>>();
+            var mapThreads = new List<Thread>();
 
             var results = new ConcurrentDictionary<string, List<WordData>>();
 
-            for (int docIndex = startIndex; docIndex < stopIndex; docIndex++)
-            {
-                string docContent = GetDocContentByIndex(folderPath, docIndex);
+            int step = (stopIndex - startIndex) / processCount;
 
-                mapProcesses.Add(new MapProccess<string, WordData>(MapProccessFunc, ref results, docIndex, docContent));
+            for (int docIndex = startIndex; docIndex < stopIndex; docIndex += step)
+            {
+                var t = new Thread(() => MapProccess(folderPath, docIndex, docIndex + step, ref results));
+                t.Start();
+
+                mapThreads.Add(t);
             }
 
-            foreach (var process in mapProcesses)
+            foreach (var process in mapThreads)
             {
-                process.WaitForResult();
+                process.Join();
             }
 
-            //Console.WriteLine(results);
+            Console.WriteLine(results);
 
             return results;
         }
 
-        private Dictionary<string, WordData> MapProccessFunc(params object[] args)
+        private void MapProccess(string folderPath, int startIndex, int stopIndex, ref ConcurrentDictionary<string, List<WordData>> results) 
         {
-            int docId = (int)args[0];
-            string docContent = (string)args[1];
+            for (int docIndex = startIndex; docIndex < stopIndex; docIndex++)
+            {
+                string docContent = GetDocContentByIndex(folderPath, docIndex);
 
+                MapDocument(docIndex, docContent, ref results);
+            }
+        }
+
+        private void MapDocument(int docId, string docContent, ref ConcurrentDictionary<string, List<WordData>> results)
+        {
             var cleanedText = CleanText(docContent);
 
-            //Console.WriteLine($"doc{docId} map started");
+            Console.WriteLine($"doc{docId} map started");
 
             string[] words = cleanedText.Split(" ");
             int wordsCount = words.Length;
 
-            //Console.WriteLine($"doc{docId} words count: {wordsCount}");
+            Console.WriteLine($"doc{docId} words count: {wordsCount}");
 
             Dictionary<string, WordData> mapData = new Dictionary<string, WordData>();
 
@@ -178,9 +187,27 @@ namespace InvertedIndex
                 }
             }
 
-            //Console.WriteLine($"doc{docId} map finished");
+            Console.WriteLine($"doc{docId} mapped, sending data to results...");
 
-            return mapData;
+            foreach (KeyValuePair<string, WordData> pair in mapData)
+            {
+                var key = pair.Key;
+                var value = pair.Value;
+
+                if (results.TryGetValue(key, out var a))
+                {
+                    results[key].Add(value);
+                }
+                else
+                {
+                    if (!results.TryAdd(key, new List<WordData>() { pair.Value }))
+                    {
+                        results[key].Add(value);
+                    }
+                }
+            }
+
+            Console.WriteLine($"doc{docId} map finished");
         }
 
         private ConcurrentDictionary<string, WordData> Reduce(ConcurrentDictionary<string, List<WordData>> mapedData)
@@ -232,6 +259,7 @@ namespace InvertedIndex
             //Console.WriteLine($"word [{word}] reduce finished");
         }
 
+        // todo: move to utils
         public static string GetDocContentByIndex(string folderPath, int index)
         {
             string fileQuery = String.Format(QUERY_FORMAT, index);
