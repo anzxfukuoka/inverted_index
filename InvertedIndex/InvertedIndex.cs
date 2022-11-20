@@ -58,7 +58,7 @@ namespace InvertedIndex
         /// <summary>
         /// List of documents
         /// </summary>
-        public ConcurrentBag<Document> docs;
+        public List<Document> docs;
 
         /// <summary>
         /// Number of documents with this word
@@ -73,14 +73,14 @@ namespace InvertedIndex
         public void Combine(WordData other)
         {
             // todo: fix race cond
-            docs.Concat(other.docs);
-            //docs.AddRange(other.docs);
+            //docs.Concat(other.docs);
+            docs.AddRange(other.docs);
             //Console.WriteLine("new combine");
         }
 
         public WordData(int firstDocId, int firstDocOccurrsCount, int firstDocWordCount) 
         {
-            docs = new ConcurrentBag<Document>() { new Document(firstDocId, firstDocOccurrsCount, firstDocWordCount) };
+            docs = new List<Document>() { new Document(firstDocId, firstDocOccurrsCount, firstDocWordCount) };
         }
     }
     public class InvertedIndex
@@ -221,10 +221,8 @@ namespace InvertedIndex
                 if (mapData.TryGetValue(word, out WordData wd))
                 {
                     // на этом этапе в WordData.docs лежит только один Document, заданый через конструктор
-                    while (!wd.docs.TryPeek(out WordData.Document doc)) 
-                    {
-                        doc.occurrsCount += 1;
-                    }
+                    wd.docs[0].occurrsCount += 1;
+                    
                 }
                 else
                 {
