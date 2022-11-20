@@ -50,7 +50,7 @@ namespace InvertedIndex
 
             indexer.IndexFolder(folderPaths_125[0], START_INDEX_125, STOP_INDEX_125);
 
-            var query = "comedy"; // good comedy movie
+            var query = "funny comedy"; // good comedy movie
 
             Console.WriteLine($"Search query: {query}");
 
@@ -58,10 +58,13 @@ namespace InvertedIndex
 
             Console.WriteLine($"Results: \t Count: {queryResults.Count}");
 
-            foreach (var queryResult in queryResults)
+            foreach (var pair in queryResults)
             {
-                Console.WriteLine($"docId: {queryResult.id}, tf: {queryResult.tf}");
-                Console.WriteLine($"\t{InvertedIndex.GetDocContentByIndex(folderPaths_125[0], queryResult.id).Substring(0, 80)}...");
+                var docId = pair.Key;
+                var relevance = pair.Value;
+
+                Console.WriteLine($"docId: {docId}, relevance: {relevance}");
+                Console.WriteLine($"\t{InvertedIndex.GetDocContentByIndex(folderPaths_125[0], docId).Substring(0, 80)}...");
                 Console.WriteLine();
             }
 

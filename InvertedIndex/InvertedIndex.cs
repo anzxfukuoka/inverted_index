@@ -89,6 +89,8 @@ namespace InvertedIndex
 
         private ConcurrentDictionary<string, WordData> indexedData;
 
+        private int indexedDocumentsCount = 0;
+
         public void IndexFolder(string folderPath, int startIndex, int stopIndex)
         {
             Console.WriteLine($"Indexing... [{startIndex} - {stopIndex}]");
@@ -105,18 +107,49 @@ namespace InvertedIndex
 
             Console.WriteLine("Reduce finished");
 
+            Console.WriteLine($"Indexing [{startIndex} - {stopIndex}] finished");
+
+            indexedDocumentsCount = stopIndex - startIndex;
+
             indexedData = reducedData;
         }
 
-        public List<WordData.Document> FindInDocs(string queryWord)
+        public Dictionary<int, double> FindInDocs(string queryWord)
         {
-            var words = CleanText(queryWord);
+            var words = CleanText(queryWord).Split(" ");
 
-            var docsList = indexedData[words].docs;
+            // <id, relavance>
+            var foundDocuments = new Dictionary<int, double>();
+
+            foreach (var word in words)
+            {
+                var docsList = indexedData[word].docs;
+
+                double idf = Math.Log(indexedDocumentsCount / indexedData[word].docCount);
+
+                foreach (var doc in docsList)
+                {
+                    double relavance = doc.tf * idf;
+
+                    if (foundDocuments.ContainsKey(doc.id))
+                    {
+
+                        foundDocuments[doc.id] += relavance;
+                    }
+                    else 
+                    {
+                        foundDocuments.Add(doc.id, relavance);
+                    }
+                }
+
+            }
 
             //var idf = indexedData[words].docCount / 250; //indexedData[words].idf;
 
-            return docsList.OrderByDescending((x) => x.tf).ToList();
+            var sorted = (from entery in foundDocuments orderby entery.Value descending select entery)
+                .ToDictionary(x => x.Key, x => x.Value );
+
+            return sorted;
         }
         private ConcurrentDictionary<string, ConcurrentBag<WordData>> Map(string folderPath, int startIndex, int stopIndex, int processCount = 10)
         {
@@ -198,12 +231,12 @@ namespace InvertedIndex
         {
             var cleanedText = CleanText(docContent);
 
-            Console.WriteLine($"doc{docId} map started");
+            //Console.WriteLine($"doc{docId} map started");
 
             string[] words = cleanedText.Split(" ");
             int wordsCount = words.Length;
 
-            Console.WriteLine($"doc{docId} words count: {wordsCount}");
+            //Console.WriteLine($"doc{docId} words count: {wordsCount}");
 
             Dictionary<string, WordData> mapData = new Dictionary<string, WordData>();
 
@@ -231,7 +264,7 @@ namespace InvertedIndex
                 }
             }
 
-            Console.WriteLine($"doc{docId} mapped, sending data to results...");
+            //Console.WriteLine($"doc{docId} mapped, sending data to results...");
 
             foreach (KeyValuePair<string, WordData> pair in mapData)
             {
@@ -253,7 +286,7 @@ namespace InvertedIndex
                 }
             }
 
-            Console.WriteLine($"doc{docId} map finished");
+            //Console.WriteLine($"doc{docId} map finished");
         }
 
         private ConcurrentDictionary<string, WordData> Reduce(ConcurrentDictionary<string, ConcurrentBag<WordData>> mapedData, int processCount = 10)
