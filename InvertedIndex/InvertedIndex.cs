@@ -91,8 +91,12 @@ namespace InvertedIndex
 
         private int indexedDocumentsCount = 0;
 
+        public string folderPath = "";
+
         public void IndexFolder(string folderPath, int startIndex, int stopIndex)
         {
+            this.folderPath = folderPath;
+
             Console.WriteLine($"Indexing... [{startIndex} - {stopIndex}]");
 
             Console.WriteLine("Map started");
@@ -123,6 +127,8 @@ namespace InvertedIndex
 
             foreach (var word in words)
             {
+                if (word.Equals(String.Empty) || !indexedData.ContainsKey(word)) { continue; }
+
                 var docsList = indexedData[word].docs;
 
                 double idf = Math.Log(indexedDocumentsCount / indexedData[word].docCount);
@@ -196,9 +202,9 @@ namespace InvertedIndex
                 process.Join();
             }
 
-            var a = results.ToImmutableSortedDictionary();
+            //var a = results.ToImmutableSortedDictionary();
 
-            Console.WriteLine(results);
+            //Console.WriteLine(results);
 
             return results;
         }
