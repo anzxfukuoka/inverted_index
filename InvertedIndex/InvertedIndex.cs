@@ -7,7 +7,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -56,7 +58,7 @@ namespace InvertedIndex
         /// <summary>
         /// List of documents
         /// </summary>
-        public List<Document> docs = new List<Document>();
+        public ConcurrentBag<Document> docs;
 
         /// <summary>
         /// Number of documents with this word
@@ -70,14 +72,15 @@ namespace InvertedIndex
 
         public void Combine(WordData other)
         {
-            docs.AddRange(other.docs);
+            // todo: fix race cond
+            docs.Concat(other.docs);
+            //docs.AddRange(other.docs);
             //Console.WriteLine("new combine");
         }
 
-        public void AddDocument(int id, int occurrsCount, int wordCount)
+        public WordData(int firstDocId, int firstDocOccurrsCount, int firstDocWordCount) 
         {
-            var doc = new Document(id, occurrsCount, wordCount);
-            docs.Add(doc);
+            docs = new ConcurrentBag<Document>() { new Document(firstDocId, firstDocOccurrsCount, firstDocWordCount) };
         }
     }
     public class InvertedIndex
@@ -115,19 +118,43 @@ namespace InvertedIndex
 
             return docsList.OrderByDescending((x) => x.tf).ToList();
         }
-        private ConcurrentDictionary<string, List<WordData>> Map(string folderPath, int startIndex, int stopIndex, int processCount = 10)
+        private ConcurrentDictionary<string, ConcurrentBag<WordData>> Map(string folderPath, int startIndex, int stopIndex, int processCount = 10)
         {
+            //string globalText = "";
+
+            //for (int i = startIndex; i < stopIndex; i++)
+            //{
+            //    globalText += GetDocContentByIndex(folderPath, i);
+            //}
+
+            //globalText = CleanText(globalText);
+
+            //var q = globalText.Split(" ").ToHashSet<string>();
+
+            //foreach (var item in q)
+            //{
+            //    if (item.Equals(String.Empty))
+            //    {
+            //        q.Remove(item);
+            //    }
+            //}
+
+            //int globalWordCount = q.Count;
+
+            //Console.WriteLine($"globalWordCount: {globalWordCount}");
+
             var mapThreads = new List<Thread>();
 
-            var results = new ConcurrentDictionary<string, List<WordData>>();
+            var results = new ConcurrentDictionary<string, ConcurrentBag<WordData>>();
 
-            int step = (stopIndex - startIndex) / processCount;
+            int docsCount = (stopIndex - startIndex);
+            int step = docsCount / processCount;
 
-            for (int docIndex = startIndex; docIndex < stopIndex; docIndex += step)
+            int docIndex;
+
+            for (docIndex = startIndex; docIndex < stopIndex; docIndex += step)
             {
-                var t = new Thread(() => MapProccess(folderPath, docIndex, docIndex + step, ref results));
-                t.Start();
-
+                var t = StartMapThread(folderPath, docIndex, docIndex + step, results);
                 mapThreads.Add(t);
             }
 
@@ -136,13 +163,29 @@ namespace InvertedIndex
                 process.Join();
             }
 
+            var a = results.ToImmutableSortedDictionary();
+
             Console.WriteLine(results);
 
             return results;
         }
 
-        private void MapProccess(string folderPath, int startIndex, int stopIndex, ref ConcurrentDictionary<string, List<WordData>> results) 
+        private Thread StartMapThread(string folderPath, int startIndex, int stopIndex, ConcurrentDictionary<string, ConcurrentBag<WordData>> results)
         {
+            var t = new Thread(() => MapProccess(folderPath, startIndex, stopIndex, results));
+            t.Name = $"{startIndex}";
+            t.Start();
+
+            return t;
+        }
+
+        private void MapProccess(string folderPath, int startIndex, int stopIndex, ConcurrentDictionary<string, ConcurrentBag<WordData>> results) 
+        {
+            //if (!$"{startIndex}".Equals(Thread.CurrentThread.Name)) 
+            //{
+            //    throw new Exception($"bug happend\nThread.Name: {Thread.CurrentThread.Name}\nstartIndex: {startIndex}");
+            //}
+
             for (int docIndex = startIndex; docIndex < stopIndex; docIndex++)
             {
                 string docContent = GetDocContentByIndex(folderPath, docIndex);
@@ -151,7 +194,7 @@ namespace InvertedIndex
             }
         }
 
-        private void MapDocument(int docId, string docContent, ref ConcurrentDictionary<string, List<WordData>> results)
+        private void MapDocument(int docId, string docContent, ref ConcurrentDictionary<string, ConcurrentBag<WordData>> results)
         {
             var cleanedText = CleanText(docContent);
 
@@ -177,12 +220,15 @@ namespace InvertedIndex
 
                 if (mapData.TryGetValue(word, out WordData wd))
                 {
-                    wd.docs[0].occurrsCount += 1;
+                    // на этом этапе в WordData.docs лежит только один Document, заданый через конструктор
+                    while (!wd.docs.TryPeek(out WordData.Document doc)) 
+                    {
+                        doc.occurrsCount += 1;
+                    }
                 }
                 else
                 {
-                    wd = new WordData();
-                    wd.AddDocument(docId, 1, wordsCount);
+                    wd = new WordData(docId, 1, wordsCount);
                     mapData.Add(word, wd);
                 }
             }
@@ -191,18 +237,20 @@ namespace InvertedIndex
 
             foreach (KeyValuePair<string, WordData> pair in mapData)
             {
-                var key = pair.Key;
-                var value = pair.Value;
+                var word = pair.Key;
+                var newWD = pair.Value;
 
-                if (results.TryGetValue(key, out var a))
+                ConcurrentBag<WordData> wdList;
+
+                if (!results.TryAdd(word, new ConcurrentBag<WordData>() { newWD }))
                 {
-                    results[key].Add(value);
-                }
-                else
-                {
-                    if (!results.TryAdd(key, new List<WordData>() { pair.Value }))
+                    if (results.TryGetValue(word, out wdList))
                     {
-                        results[key].Add(value);
+                        wdList.Add(newWD);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"{word} data is corrupted");
                     }
                 }
             }
@@ -210,7 +258,7 @@ namespace InvertedIndex
             Console.WriteLine($"doc{docId} map finished");
         }
 
-        private ConcurrentDictionary<string, WordData> Reduce(ConcurrentDictionary<string, List<WordData>> mapedData)
+        private ConcurrentDictionary<string, WordData> Reduce(ConcurrentDictionary<string, ConcurrentBag<WordData>> mapedData, int processCount = 10)
         {
             var reduceThreads = new List<Thread>();
 
@@ -235,7 +283,7 @@ namespace InvertedIndex
             return results;
         }
 
-        public void ReduceProcessFunc(string word, List<WordData> data, ref ConcurrentDictionary<string, WordData> results)
+        public void ReduceProcessFunc(string word, ConcurrentBag<WordData> data, ref ConcurrentDictionary<string, WordData> results)
         {
             //Console.WriteLine($"word [{word}] reduce started");
 
@@ -290,8 +338,8 @@ namespace InvertedIndex
             string cleanedText = text.ToLower();
             cleanedText = Regex.Replace(cleanedText, @"[,():?]", "");
             cleanedText = Regex.Replace(cleanedText, "\"", "");
-            cleanedText = Regex.Replace(cleanedText, @"[.]", " ");
-            cleanedText = Regex.Replace(cleanedText, @"--", " ");
+            cleanedText = Regex.Replace(cleanedText, @"['.]", " ");
+            cleanedText = Regex.Replace(cleanedText, @" -- ", " ");
             cleanedText = Regex.Replace(cleanedText, @"`", "'");
             cleanedText = Regex.Replace(cleanedText, @"<br />", " ");
             cleanedText = Regex.Replace(cleanedText, @"[\n\t]", " ");
