@@ -173,7 +173,7 @@ namespace InvertedIndex
         private Thread StartMapThread(string folderPath, int startIndex, int stopIndex, ConcurrentDictionary<string, ConcurrentBag<WordData>> results)
         {
             var t = new Thread(() => MapProccess(folderPath, startIndex, stopIndex, results));
-            t.Name = $"{startIndex}";
+            t.Name = $"MapThread [{startIndex} - {stopIndex}]";
             t.Start();
 
             return t;
@@ -264,14 +264,27 @@ namespace InvertedIndex
 
             var results = new ConcurrentDictionary<string, WordData>();
 
-            foreach (var pair in mapedData)
+            var splittedMapedData = new Dictionary<string, ConcurrentBag<WordData>>[processCount];
+
+            foreach (var pair in mapedData) 
             {
                 var word = pair.Key;
                 var dataList = pair.Value;
 
-                Thread t = new Thread(() => ReduceProcessFunc(word, dataList, ref results));
-                t.Start();
+                int wordStartChar = word[0];
+                var reduceProcessIndex = wordStartChar % processCount;
 
+                if (splittedMapedData[reduceProcessIndex] == null)
+                {
+                    splittedMapedData[reduceProcessIndex] = new Dictionary<string, ConcurrentBag<WordData>>();
+                }
+
+                splittedMapedData[reduceProcessIndex].Add(word, dataList);
+            }
+
+            foreach (var dataPart in splittedMapedData)
+            {
+                Thread t = StartReduceThread(new ConcurrentDictionary<string, ConcurrentBag<WordData>>(dataPart), results);
                 reduceThreads.Add(t);
             }
 
@@ -283,7 +296,26 @@ namespace InvertedIndex
             return results;
         }
 
-        public void ReduceProcessFunc(string word, ConcurrentBag<WordData> data, ref ConcurrentDictionary<string, WordData> results)
+        private Thread StartReduceThread(ConcurrentDictionary<string, ConcurrentBag<WordData>> data, ConcurrentDictionary<string, WordData> results)
+        {
+            Thread t = new Thread(() => ReduceProcess(data, results));
+            t.Name = $"ReduceThread [{data.First().Key} - {data.Last().Key}]";
+            t.Start();
+            return t;
+        }
+
+        public void ReduceProcess(ConcurrentDictionary<string, ConcurrentBag<WordData>> data, ConcurrentDictionary<string, WordData> results) 
+        {
+            foreach (var pair in data)
+            {
+                var word = pair.Key;
+                var docList = pair.Value;
+
+                ReduceProcessFunc(word, docList, results);
+            }
+        }
+
+        public void ReduceProcessFunc(string word, ConcurrentBag<WordData> data, ConcurrentDictionary<string, WordData> results)
         {
             //Console.WriteLine($"word [{word}] reduce started");
 
