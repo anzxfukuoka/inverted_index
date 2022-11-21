@@ -99,7 +99,7 @@ namespace SearchEngine
         {
             this.folderPath = folderPath;
 
-            Console.WriteLine($"Indexing... [{startIndex} - {stopIndex}]");
+            Console.WriteLine($"Indexing... [{startIndex} - {stopIndex}] \t {folderPath}");
 
             //Console.WriteLine("Map started");
 
@@ -161,29 +161,6 @@ namespace SearchEngine
 
         private ConcurrentDictionary<string, ConcurrentBag<WordData>> Map(string folderPath, int startIndex, int stopIndex, int processCount = 10)
         {
-            //string globalText = "";
-
-            //for (int i = startIndex; i < stopIndex; i++)
-            //{
-            //    globalText += GetDocContentByIndex(folderPath, i);
-            //}
-
-            //globalText = CleanText(globalText);
-
-            //var q = globalText.Split(" ").ToHashSet<string>();
-
-            //foreach (var item in q)
-            //{
-            //    if (item.Equals(String.Empty))
-            //    {
-            //        q.Remove(item);
-            //    }
-            //}
-
-            //int globalWordCount = q.Count;
-
-            //Console.WriteLine($"globalWordCount: {globalWordCount}");
-
             var mapThreads = new List<Thread>();
 
             var results = new ConcurrentDictionary<string, ConcurrentBag<WordData>>();
@@ -204,10 +181,6 @@ namespace SearchEngine
                 process.Join();
             }
 
-            //var a = results.ToImmutableSortedDictionary();
-
-            //Console.WriteLine(results);
-
             return results;
         }
 
@@ -222,11 +195,6 @@ namespace SearchEngine
 
         private void MapProccess(string folderPath, int startIndex, int stopIndex, ConcurrentDictionary<string, ConcurrentBag<WordData>> results) 
         {
-            //if (!$"{startIndex}".Equals(Thread.CurrentThread.Name)) 
-            //{
-            //    throw new Exception($"bug happend\nThread.Name: {Thread.CurrentThread.Name}\nstartIndex: {startIndex}");
-            //}
-
             for (int docIndex = startIndex; docIndex < stopIndex; docIndex++)
             {
                 string docContent = GetDocContentByIndex(folderPath, docIndex);

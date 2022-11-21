@@ -6,6 +6,7 @@ using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Diagnostics;
 
 namespace SearchEngine
 {
@@ -43,12 +44,11 @@ namespace SearchEngine
                 while (true)
                 {
                     // Send message.
-
                     message += NetMSG.EOM;
 
                     var messageBytes = Encoding.UTF8.GetBytes(message);
                     await client.SendAsync(messageBytes, SocketFlags.None);
-                    Console.WriteLine($"Socket client sent message: \"{message}\"");
+                    Debug.WriteLine($"Socket client sent message: \"{message}\"");
 
                     // Receive ack.
                     var buffer = new byte[1_024];
@@ -58,7 +58,7 @@ namespace SearchEngine
 
                     if (response == NetMSG.ACK)
                     {
-                        Console.WriteLine(
+                        Debug.WriteLine(
                             $"Socket client received acknowledgment: \"{response}\"");
                         //break;
                     }
@@ -70,7 +70,7 @@ namespace SearchEngine
 
                     if (response.IndexOf(NetMSG.EOM) > -1 /* is end of message */)
                     {
-                        Console.WriteLine(
+                        Debug.WriteLine(
                             $"Socket client received response: \"{response}\"");
 
                         response = response.Replace(NetMSG.EOM, "");
@@ -130,7 +130,6 @@ namespace SearchEngine
 
             while (client.Connected)
             {
-                //Console.WriteLine(handler.Connected + " " + handler.Poll(1, SelectMode.SelectRead));
                 // Receive message.
                 var buffer = new byte[1_024];
 
@@ -140,7 +139,7 @@ namespace SearchEngine
                 {
                     received = client.Receive(buffer, SocketFlags.None);
                     response = Encoding.UTF8.GetString(buffer, 0, received);
-                    Console.Write(response);
+                    //Console.Write(response);
                 }
                 catch (System.Net.Sockets.SocketException e)
                 {
@@ -174,9 +173,6 @@ namespace SearchEngine
                     Console.WriteLine(
                        $"Socket server sent response: \"{reply}\"");
 
-                    //client.Disconnect(false);
-
-                    //break;
                 }
 
             }

@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.Linq;
 using System.Net;
@@ -69,19 +70,6 @@ namespace SearchEngine
             return 0;
         }
 
-        //private async void StartServer() 
-        //{
-            
-
-        //    Thread.Sleep(2_000);
-
-        //    var client = new Client(addr, port);
-
-        //    Console.WriteLine(await client.GetResponse("Horror dramma"));
-
-            
-        //}
-
         public void Index() 
         {
             Console.WriteLine("++++++++++ INDEXING STARTED ++++++++++");
@@ -114,12 +102,12 @@ namespace SearchEngine
             string bestIndexerPath = null;
             double bestRelevance = -1;
 
-            Console.WriteLine($"Search query: {query}");
+            Debug.WriteLine($"Search query: {query}");
 
             foreach (var indexer in indexedFolders)
             {
                 var queryResults = indexer.FindInDocs(query);
-                Console.WriteLine($"Indexer: {indexer.GetHashCode()}\t Count: {queryResults.Count}");
+                Debug.WriteLine($"Indexer: {indexer.GetHashCode()}\t Count: {queryResults.Count}");
 
                 if (queryResults.Count <= 0) { continue; }
 
