@@ -12,124 +12,239 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection.Metadata;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace InvertedIndex
 {
-
-    internal class Client 
+    struct NetMSG
     {
-        private string host;
-        private int port;
-
+        public const string EOM = "<|EOM|>";
+        public const string ACK = "<|ACK|>";
+    }
+    internal class Client
+    {
         private IPEndPoint iPEndPoint;
+
+        private Socket client;
 
         internal Client(string host, int port)
         {
-            this.host = host;
-            this.port = port;
-
             var addr = Dns.GetHostAddresses(host)[0];
 
             iPEndPoint = new IPEndPoint(addr, port);
         }
 
-        public async Task SendAsync() 
+        public async Task<string> GetResponse(string message) 
         {
-            using Socket client = new(
+            string response = null;
+
+            try
+            {
+                client = new(
                 iPEndPoint.AddressFamily,
                 SocketType.Stream,
                 ProtocolType.Tcp);
 
-            await client.ConnectAsync(iPEndPoint);
+                await client.ConnectAsync(iPEndPoint);
 
-            while (true)
-            {
-                // Send message.
-                var message = "Dramma<|EOM|>";
-                var messageBytes = Encoding.UTF8.GetBytes(message);
-                _ = await client.SendAsync(messageBytes, SocketFlags.None);
-                Console.WriteLine($"Socket client sent message: \"{message}\"");
+                
 
-                // Receive ack.
-                var buffer = new byte[1_024];
-                var received = await client.ReceiveAsync(buffer, SocketFlags.None);
-                var response = Encoding.UTF8.GetString(buffer, 0, received);
-                if (response == "<|ACK|>")
+                while (true)
                 {
-                    Console.WriteLine(
-                        $"Socket client received acknowledgment: \"{response}\"");
-                    break;
+                    // Send message.
+
+                    message += NetMSG.EOM;
+
+                    var messageBytes = Encoding.UTF8.GetBytes(message);
+                    await client.SendAsync(messageBytes, SocketFlags.None);
+                    Console.WriteLine($"Socket client sent message: \"{message}\"");
+
+                    // Receive ack.
+                    var buffer = new byte[1_024];
+                    var received = await client.ReceiveAsync(buffer, SocketFlags.None);
+                    response = Encoding.UTF8.GetString(buffer, 0, received);
+                    
+                    if (response == NetMSG.ACK)
+                    {
+                        Console.WriteLine(
+                            $"Socket client received acknowledgment: \"{response}\"");
+                        //break;
+                    }
+
+                    // Receive response.
+                    buffer = new byte[1_024];
+                    received = await client.ReceiveAsync(buffer, SocketFlags.None);
+                    response = Encoding.UTF8.GetString(buffer, 0, received);
+
+                    if (response.IndexOf(NetMSG.EOM) > -1 /* is end of message */)
+                    {
+                        Console.WriteLine(
+                            $"Socket client received response: \"{response}\"");
+                        break;
+                    }
                 }
-                // Sample output:
-                //     Socket client sent message: "Hi friends 👋!<|EOM|>"
-                //     Socket client received acknowledgment: "<|ACK|>"
+
+            }
+            catch (SocketException e) 
+            {
+                //todo: remove hided exception
             }
 
-            client.Shutdown(SocketShutdown.Both);
+            return response.Replace(NetMSG.EOM, "");
         }
 
     }
 
     internal class Server 
     {
-        private string host;
-        private int port;
-
         private IPEndPoint iPEndPoint;
 
-        private List<Socket> connections = new List<Socket>();
+        private HashSet<Socket> connections = new HashSet<Socket>();
 
-        internal Server(string host, int port) 
+        public delegate string GetResponseMessage(string recivedMessage);
+        private GetResponseMessage GetResponseMsg;
+
+        public bool IsRunning { private get; set; } = false;
+
+        private Socket listener;
+        
+        private Thread serverThread;
+
+        private int timeout = 30_000;
+
+        internal Server(string host, int port, GetResponseMessage GetResponseMsg)
         {
-            this.host = host;
-            this.port = port;
-
             var addr = Dns.GetHostAddresses(host)[0];
-
             iPEndPoint = new IPEndPoint(addr, port);
+
+            this.GetResponseMsg = GetResponseMsg;
         }
 
-        public async Task StartAsync()
+        private void AddConnection(Socket client) 
         {
-            using Socket listener = new Socket(
-                iPEndPoint.AddressFamily,
-                SocketType.Stream,
-                ProtocolType.Tcp
-                );
+            Thread connHanler = new Thread(() => HandleConnection(client));
+            connHanler.Start();
+        }
 
-            listener.Bind(iPEndPoint);
-            listener.Listen();
+        private void HandleConnection(Socket client) 
+        {
+            connections.Add(client);
 
-            Console.WriteLine("lstn...");
+            client.ReceiveTimeout = timeout;
+            client.SendTimeout = timeout;
 
-            var handler = await listener.AcceptAsync();
-            
-            while (handler.Connected)
+            while (client.Connected)
             {
-                Console.WriteLine("msg");
+                //Console.WriteLine(handler.Connected + " " + handler.Poll(1, SelectMode.SelectRead));
                 // Receive message.
                 var buffer = new byte[1_024];
-                var received = await handler.ReceiveAsync(buffer, SocketFlags.None);
-                var response = Encoding.UTF8.GetString(buffer, 0, received);
 
-                var eom = "<|EOM|>";
-                if (response.IndexOf(eom) > -1 /* is end of message */)
+                int received;
+                string response;
+                try
+                {
+                    received = client.Receive(buffer, SocketFlags.None);
+                    response = Encoding.UTF8.GetString(buffer, 0, received);
+                    Console.Write(response);
+                }
+                catch (System.Net.Sockets.SocketException e) 
+                {
+                    //Console.WriteLine($"Connection {client.RemoteEndPoint} is down");
+                    Console.WriteLine($"Connection {client.GetHashCode} is down");
+
+                    break;
+
+                }
+                
+                if (response.IndexOf(NetMSG.EOM) > -1 /* is end of message */)
                 {
                     Console.WriteLine(
-                        $"Socket server received message: \"{response.Replace(eom, "")}\"");
+                        $"Socket server received message: \"{response.Replace(NetMSG.EOM, "")}\"");
 
-                    var ackMessage = "<|ACK|>";
+                    
+                    var ackMessage = NetMSG.ACK;
                     var echoBytes = Encoding.UTF8.GetBytes(ackMessage);
-                    await handler.SendAsync(echoBytes, 0);
+
+                    client.Send(echoBytes, 0);
+
+                    var replyMsg = GetResponseMsg(response);
+                    var replyBytes = Encoding.UTF8.GetBytes(replyMsg);
+
                     Console.WriteLine(
                         $"Socket server sent acknowledgment: \"{ackMessage}\"");
 
-                    break;
+                    client.Send(replyBytes, 0);
+
+                    Console.WriteLine(
+                       $"Socket server sent response: \"{response}\"");
+
+                    //client.Disconnect(false);
+
+                    //break;
                 }
 
+            }
+
+            client.Close();
+
+            connections.Remove(client);
+        }
+
+        private void MainLoop() 
+        {
+            while (IsRunning) 
+            {
+                try
+                {
+                    listener.Listen();
+
+                    var conn = listener.Accept();
+
+                    Console.WriteLine($"New connection: {conn.RemoteEndPoint}");
+
+                    AddConnection(conn);
+                }
+                catch (SocketException e) 
+                {
+                    break;
+                }
+                
+            }
+        }
+
+
+        public void Start()
+        {
+            IsRunning = true;
+
+            listener = new Socket(
+               iPEndPoint.AddressFamily,
+               SocketType.Stream,
+               ProtocolType.Tcp
+               );
+
+            listener.Bind(iPEndPoint);
+
+            serverThread = new Thread(MainLoop);
+            serverThread.Start();
+        }
+
+        public void Stop() 
+        {
+            IsRunning = false;
+
+            if (listener != null) 
+            {
+                listener.Close();
+            }
+
+            foreach (var conn in connections)
+            {
+                conn.Close();
+                connections.Remove(conn);
             }
         }
     }
@@ -168,32 +283,32 @@ namespace InvertedIndex
 
         private Server server;
 
-        public static async Task<int> Main(string[] args)
+        public static int Main(string[] args)
         {
             SearchEngine searchEngine = new SearchEngine();
 
             //searchEngine.Index();
-            await searchEngine.StartServerAsync();
+            searchEngine.StartServer();
             //searchEngine.Query();
             
             return 0;
         }
 
-        private async Task StartServerAsync() 
+        private async void StartServer() 
         {
             var addr = "127.0.0.1";
             var port = 1337;
 
-            server = new Server(addr, port);
-            var serverTask = server.StartAsync();
+            server = new Server(addr, port, (msg) => $"ECHO[{msg}]");
+            server.Start();
+
+            Thread.Sleep(2_000);
 
             var client = new Client(addr, port);
 
-            Thread.Sleep(10_000);
+            Console.WriteLine(await client.GetResponse("Horror dramma"));
 
-            await client.SendAsync();
-
-            await serverTask;
+            server.Stop();
         }
 
         public void Index() 
