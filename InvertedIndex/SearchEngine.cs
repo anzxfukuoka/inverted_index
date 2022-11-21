@@ -16,7 +16,7 @@ using System.Text.RegularExpressions;
 
 namespace InvertedIndex
 {
-    public class Program 
+    public class SearchEngine
     {
         #region Input data params
 

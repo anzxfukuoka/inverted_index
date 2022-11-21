@@ -83,6 +83,8 @@ namespace InvertedIndex
             docs = new List<Document>() { new Document(firstDocId, firstDocOccurrsCount, firstDocWordCount) };
         }
     }
+    
+    //todo: add docs
     public class InvertedIndex
     {
         private const string QUERY_FORMAT = "{0}_*.txt";
@@ -118,11 +120,11 @@ namespace InvertedIndex
             indexedData = reducedData;
         }
 
+        //<id, relavance>
         public Dictionary<int, double> FindInDocs(string queryWord)
         {
             var words = CleanText(queryWord).Split(" ");
 
-            // <id, relavance>
             var foundDocuments = new Dictionary<int, double>();
 
             foreach (var word in words)
@@ -142,7 +144,7 @@ namespace InvertedIndex
 
                         foundDocuments[doc.id] += relavance;
                     }
-                    else 
+                    else
                     {
                         foundDocuments.Add(doc.id, relavance);
                     }
@@ -150,13 +152,12 @@ namespace InvertedIndex
 
             }
 
-            //var idf = indexedData[words].docCount / 250; //indexedData[words].idf;
-
             var sorted = (from entery in foundDocuments orderby entery.Value descending select entery)
                 .ToDictionary(x => x.Key, x => x.Value );
 
             return sorted;
         }
+
         private ConcurrentDictionary<string, ConcurrentBag<WordData>> Map(string folderPath, int startIndex, int stopIndex, int processCount = 10)
         {
             //string globalText = "";
