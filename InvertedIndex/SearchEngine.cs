@@ -50,36 +50,37 @@ namespace InvertedIndex
         #endregion
 
         private List<InvertedIndex> indexedFolders = new List<InvertedIndex>();
-
-        private Server server;
+        
+        private static string hostAddress = "127.0.0.1";
+        private static int port = 1337;
 
         public static int Main(string[] args)
         {
             SearchEngine searchEngine = new SearchEngine();
 
-            //searchEngine.Index();
-            searchEngine.StartServer();
-            //searchEngine.Query();
-            
+            searchEngine.Index();
+
+            Server server = new Server(hostAddress, port, searchEngine.FindDocsByQuery);
+            server.Start();
+
+            //Thread.Sleep(60_000);
+            //server.Stop();
+
             return 0;
         }
 
-        private async void StartServer() 
-        {
-            var addr = "127.0.0.1";
-            var port = 1337;
+        //private async void StartServer() 
+        //{
+            
 
-            server = new Server(addr, port, (msg) => $"ECHO[{msg}]");
-            server.Start();
+        //    Thread.Sleep(2_000);
 
-            Thread.Sleep(2_000);
+        //    var client = new Client(addr, port);
 
-            var client = new Client(addr, port);
+        //    Console.WriteLine(await client.GetResponse("Horror dramma"));
 
-            Console.WriteLine(await client.GetResponse("Horror dramma"));
-
-            server.Stop();
-        }
+            
+        //}
 
         public void Index() 
         {
@@ -107,52 +108,77 @@ namespace InvertedIndex
 
         }
 
-        public void Query() 
+        public Dictionary<int, double> FindDocsByQuery(string query) 
         {
-            var searchQueries = new Queue<string>();
-
-            searchQueries.Enqueue("The");
-            searchQueries.Enqueue("Hadoop");
-            searchQueries.Enqueue("Good comedy movie");
-            searchQueries.Enqueue("Imagine back to when you were 11 years old.");
-            searchQueries.Enqueue("Vampire horror");
-
             Dictionary<int, double> queryResults = new Dictionary<int, double>();
 
-            while (searchQueries.TryDequeue(out string query))
+            Console.WriteLine($"Search query: {query}");
+
+            foreach (var indexer in indexedFolders)
             {
-                Console.WriteLine($"Search query: {query}");
+                queryResults = indexer.FindInDocs(query);
+                Console.WriteLine($"Indexer: {indexer.GetHashCode()}\t Count: {queryResults.Count}");
 
-                foreach (var indexer in indexedFolders)
-                {
-                    queryResults = indexer.FindInDocs(query);
-                    Console.WriteLine($"Indexer: {indexer.GetHashCode()}\t Count: {queryResults.Count}");
+                if (queryResults.Count <= 0) { continue; }
 
-                    if (queryResults.Count <= 0) { continue; }
+                var best = queryResults.First();
+                var docId = best.Key;
+                var relevance = best.Value;
 
-                    var best = queryResults.First();
-                    var docId = best.Key;
-                    var relevance = best.Value;
-
-                    Console.WriteLine($"Best match:\tdocId: {docId}, relevance: {relevance}");
-                    Console.WriteLine($"\t{InvertedIndex.GetDocContentByIndex(indexer.folderPath, docId).Substring(0, 80)}...");
-                    Console.WriteLine();
-                }
-            }
-
-            Console.WriteLine("Last query results:");
-
-            foreach (var pair in queryResults)
-            {
-                var docId = pair.Key;
-                var relevance = pair.Value;
-
-                Console.WriteLine($"docId: {docId}, relevance: {relevance}");
-                Console.WriteLine($"\t{InvertedIndex.GetDocContentByIndex(folderPaths_500[0], docId).Substring(0, 80)}...");
+                Console.WriteLine($"Best match:\tdocId: {docId}, relevance: {relevance}");
+                Console.WriteLine($"\t{InvertedIndex.GetDocContentByIndex(indexer.folderPath, docId).Substring(0, 80)}...");
                 Console.WriteLine();
             }
 
+            return queryResults;
         }
+
+        //public void Query() 
+        //{
+        //    var searchQueries = new Queue<string>();
+
+        //    searchQueries.Enqueue("The");
+        //    searchQueries.Enqueue("Hadoop");
+        //    searchQueries.Enqueue("Good comedy movie");
+        //    searchQueries.Enqueue("Imagine back to when you were 11 years old.");
+        //    searchQueries.Enqueue("Vampire horror");
+
+        //    Dictionary<int, double> queryResults = new Dictionary<int, double>();
+
+        //    while (searchQueries.TryDequeue(out string query))
+        //    {
+        //        Console.WriteLine($"Search query: {query}");
+
+        //        foreach (var indexer in indexedFolders)
+        //        {
+        //            queryResults = indexer.FindInDocs(query);
+        //            Console.WriteLine($"Indexer: {indexer.GetHashCode()}\t Count: {queryResults.Count}");
+
+        //            if (queryResults.Count <= 0) { continue; }
+
+        //            var best = queryResults.First();
+        //            var docId = best.Key;
+        //            var relevance = best.Value;
+
+        //            Console.WriteLine($"Best match:\tdocId: {docId}, relevance: {relevance}");
+        //            Console.WriteLine($"\t{InvertedIndex.GetDocContentByIndex(indexer.folderPath, docId).Substring(0, 80)}...");
+        //            Console.WriteLine();
+        //        }
+        //    }
+
+        //    Console.WriteLine("Last query results:");
+
+        //    foreach (var pair in queryResults)
+        //    {
+        //        var docId = pair.Key;
+        //        var relevance = pair.Value;
+
+        //        Console.WriteLine($"docId: {docId}, relevance: {relevance}");
+        //        Console.WriteLine($"\t{InvertedIndex.GetDocContentByIndex(folderPaths_500[0], docId).Substring(0, 80)}...");
+        //        Console.WriteLine();
+        //    }
+
+        //}
     }
 
     

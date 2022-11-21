@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.Runtime.Serialization.Formatters.Binary;
 
 namespace InvertedIndex
 {
@@ -26,9 +27,9 @@ namespace InvertedIndex
             iPEndPoint = new IPEndPoint(addr, port);
         }
 
-        public async Task<string> GetResponse(string message)
+        public async Task<Dictionary<int, double>> GetResponse(string message)
         {
-            string response = null;
+            Dictionary<int, double> foundDocs = new Dictionary<int, double>();
 
             try
             {
@@ -38,8 +39,6 @@ namespace InvertedIndex
                 ProtocolType.Tcp);
 
                 await client.ConnectAsync(iPEndPoint);
-
-
 
                 while (true)
                 {
@@ -54,7 +53,10 @@ namespace InvertedIndex
                     // Receive ack.
                     var buffer = new byte[1_024];
                     var received = await client.ReceiveAsync(buffer, SocketFlags.None);
-                    response = Encoding.UTF8.GetString(buffer, 0, received);
+
+                    var response = Encoding.UTF8.GetString(buffer, 0, received);
+
+
 
                     if (response == NetMSG.ACK)
                     {
@@ -66,14 +68,20 @@ namespace InvertedIndex
                     // Receive response.
                     buffer = new byte[1_024];
                     received = await client.ReceiveAsync(buffer, SocketFlags.None);
-                    response = Encoding.UTF8.GetString(buffer, 0, received);
+                    //response = Encoding.UTF8.GetString(buffer, 0, received);
 
-                    if (response.IndexOf(NetMSG.EOM) > -1 /* is end of message */)
-                    {
-                        Console.WriteLine(
-                            $"Socket client received response: \"{response}\"");
-                        break;
-                    }
+                    var binFormatter = new BinaryFormatter();
+                    var mStream = new MemoryStream(buffer);
+
+                    foundDocs = (Dictionary<int, double>)binFormatter.Deserialize(mStream);
+                    break;
+
+                    //if (response.IndexOf(NetMSG.EOM) > -1 /* is end of message */)
+                    //{
+                    //    Console.WriteLine(
+                    //        $"Socket client received response: \"{response}\"");
+                    //    break;
+                    //}
                 }
 
             }
@@ -82,7 +90,7 @@ namespace InvertedIndex
                 //todo: remove hided exception
             }
 
-            return response.Replace(NetMSG.EOM, "");
+            return foundDocs;//response.Replace(NetMSG.EOM, "");
         }
 
     }
@@ -93,8 +101,8 @@ namespace InvertedIndex
 
         private HashSet<Socket> connections = new HashSet<Socket>();
 
-        public delegate string GetResponseMessage(string recivedMessage);
-        private GetResponseMessage GetResponseMsg;
+        public delegate Dictionary<int, double> GetResponse(string recivedMessage);
+        private GetResponse getResponse;
 
         public bool IsRunning { private get; set; } = false;
 
@@ -104,12 +112,12 @@ namespace InvertedIndex
 
         private int timeout = 30_000;
 
-        internal Server(string host, int port, GetResponseMessage GetResponseMsg)
+        internal Server(string host, int port, GetResponse getResponse)
         {
             var addr = Dns.GetHostAddresses(host)[0];
             iPEndPoint = new IPEndPoint(addr, port);
 
-            this.GetResponseMsg = GetResponseMsg;
+            this.getResponse = getResponse;
         }
 
         private void AddConnection(Socket client)
@@ -159,16 +167,22 @@ namespace InvertedIndex
 
                     client.Send(echoBytes, 0);
 
-                    var replyMsg = GetResponseMsg(response);
-                    var replyBytes = Encoding.UTF8.GetBytes(replyMsg);
-
                     Console.WriteLine(
                         $"Socket server sent acknowledgment: \"{ackMessage}\"");
+
+                    Dictionary<int, double> foundDocs = getResponse(response.Replace(NetMSG.EOM, ""));
+
+                    var binFormatter = new BinaryFormatter();
+                    var mStream = new MemoryStream();
+
+                    binFormatter.Serialize(mStream, foundDocs);
+
+                    var replyBytes = mStream.ToArray();  
 
                     client.Send(replyBytes, 0);
 
                     Console.WriteLine(
-                       $"Socket server sent response: \"{response}\"");
+                       $"Socket server sent response: \"{foundDocs}\"");
 
                     //client.Disconnect(false);
 
