@@ -9,6 +9,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.Tracing;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Reflection.Metadata;
 using System.Security.Cryptography;
 using System.Text;
@@ -16,9 +18,125 @@ using System.Text.RegularExpressions;
 
 namespace InvertedIndex
 {
+
+    internal class Client 
+    {
+        private string host;
+        private int port;
+
+        private IPEndPoint iPEndPoint;
+
+        internal Client(string host, int port)
+        {
+            this.host = host;
+            this.port = port;
+
+            var addr = Dns.GetHostAddresses(host)[0];
+
+            iPEndPoint = new IPEndPoint(addr, port);
+        }
+
+        public async Task SendAsync() 
+        {
+            using Socket client = new(
+                iPEndPoint.AddressFamily,
+                SocketType.Stream,
+                ProtocolType.Tcp);
+
+            await client.ConnectAsync(iPEndPoint);
+
+            while (true)
+            {
+                // Send message.
+                var message = "Dramma<|EOM|>";
+                var messageBytes = Encoding.UTF8.GetBytes(message);
+                _ = await client.SendAsync(messageBytes, SocketFlags.None);
+                Console.WriteLine($"Socket client sent message: \"{message}\"");
+
+                // Receive ack.
+                var buffer = new byte[1_024];
+                var received = await client.ReceiveAsync(buffer, SocketFlags.None);
+                var response = Encoding.UTF8.GetString(buffer, 0, received);
+                if (response == "<|ACK|>")
+                {
+                    Console.WriteLine(
+                        $"Socket client received acknowledgment: \"{response}\"");
+                    break;
+                }
+                // Sample output:
+                //     Socket client sent message: "Hi friends 👋!<|EOM|>"
+                //     Socket client received acknowledgment: "<|ACK|>"
+            }
+
+            client.Shutdown(SocketShutdown.Both);
+        }
+
+    }
+
+    internal class Server 
+    {
+        private string host;
+        private int port;
+
+        private IPEndPoint iPEndPoint;
+
+        private List<Socket> connections = new List<Socket>();
+
+        internal Server(string host, int port) 
+        {
+            this.host = host;
+            this.port = port;
+
+            var addr = Dns.GetHostAddresses(host)[0];
+
+            iPEndPoint = new IPEndPoint(addr, port);
+        }
+
+        public async Task StartAsync()
+        {
+            using Socket listener = new Socket(
+                iPEndPoint.AddressFamily,
+                SocketType.Stream,
+                ProtocolType.Tcp
+                );
+
+            listener.Bind(iPEndPoint);
+            listener.Listen();
+
+            Console.WriteLine("lstn...");
+
+            var handler = await listener.AcceptAsync();
+            
+            while (handler.Connected)
+            {
+                Console.WriteLine("msg");
+                // Receive message.
+                var buffer = new byte[1_024];
+                var received = await handler.ReceiveAsync(buffer, SocketFlags.None);
+                var response = Encoding.UTF8.GetString(buffer, 0, received);
+
+                var eom = "<|EOM|>";
+                if (response.IndexOf(eom) > -1 /* is end of message */)
+                {
+                    Console.WriteLine(
+                        $"Socket server received message: \"{response.Replace(eom, "")}\"");
+
+                    var ackMessage = "<|ACK|>";
+                    var echoBytes = Encoding.UTF8.GetBytes(ackMessage);
+                    await handler.SendAsync(echoBytes, 0);
+                    Console.WriteLine(
+                        $"Socket server sent acknowledgment: \"{ackMessage}\"");
+
+                    break;
+                }
+
+            }
+        }
+    }
+
     public class SearchEngine
     {
-        #region Input data params
+        #region Indexing data params
 
         // вар
         public const int V = 34;
@@ -46,11 +164,41 @@ namespace InvertedIndex
 
         #endregion
 
-        public static int Main(string[] args)
+        private List<InvertedIndex> indexedFolders = new List<InvertedIndex>();
+
+        private Server server;
+
+        public static async Task<int> Main(string[] args)
+        {
+            SearchEngine searchEngine = new SearchEngine();
+
+            //searchEngine.Index();
+            await searchEngine.StartServerAsync();
+            //searchEngine.Query();
+            
+            return 0;
+        }
+
+        private async Task StartServerAsync() 
+        {
+            var addr = "127.0.0.1";
+            var port = 1337;
+
+            server = new Server(addr, port);
+            var serverTask = server.StartAsync();
+
+            var client = new Client(addr, port);
+
+            Thread.Sleep(10_000);
+
+            await client.SendAsync();
+
+            await serverTask;
+        }
+
+        public void Index() 
         {
             Console.WriteLine("++++++++++ INDEXING STARTED ++++++++++");
-
-            List<InvertedIndex> indexedFolders = new List<InvertedIndex>();
 
             foreach (var folderPath in folderPaths_125)
             {
@@ -72,6 +220,10 @@ namespace InvertedIndex
 
             Console.WriteLine("++++++++++ INDEXING FINISHED ++++++++++");
 
+        }
+
+        public void Query() 
+        {
             var searchQueries = new Queue<string>();
 
             searchQueries.Enqueue("The");
@@ -82,7 +234,7 @@ namespace InvertedIndex
 
             Dictionary<int, double> queryResults = new Dictionary<int, double>();
 
-            while (searchQueries.TryDequeue(out string query)) 
+            while (searchQueries.TryDequeue(out string query))
             {
                 Console.WriteLine($"Search query: {query}");
 
@@ -115,7 +267,6 @@ namespace InvertedIndex
                 Console.WriteLine();
             }
 
-            return 0;
         }
     }
 
