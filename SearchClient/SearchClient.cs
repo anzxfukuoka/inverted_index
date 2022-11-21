@@ -10,11 +10,17 @@ namespace SearchClient
 
         static async Task Main(string[] args)
         {
+            Thread t = null;
+
             for (int i = 0; i < 3; i++)
             {
-                Thread t = new Thread(() => TestConn());
-                t.Start();
+               t  = new Thread(() => TestConn());
+               t.Start();
             }
+
+            t.Join();
+
+            var kostil = Console.ReadLine();
         }
 
         public static async void TestConn() 
@@ -39,7 +45,7 @@ namespace SearchClient
 
                 queryResult = await client.GetResponse(query);
 
-                Console.WriteLine($"Search resul: \n{queryResult}");
+                Console.WriteLine($"Search result: \n{queryResult}");
             }
         }
     }
