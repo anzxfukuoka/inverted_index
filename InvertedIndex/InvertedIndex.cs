@@ -101,17 +101,18 @@ namespace SearchEngine
 
             Console.WriteLine($"Indexing... [{startIndex} - {stopIndex}]");
 
-            Console.WriteLine("Map started");
+            //Console.WriteLine("Map started");
 
             var mapedData = Map(folderPath, startIndex, stopIndex);
 
-            Console.WriteLine($"Map finished\tdictionary size: {mapedData.Count}");
+            //Console.WriteLine($"Map finished\tdictionary size: {mapedData.Count}");
+            Console.WriteLine($"dictionary size: {mapedData.Count}");
 
-            Console.WriteLine("Reduce started");
+            //Console.WriteLine("Reduce started");
 
             var reducedData = Reduce(mapedData);
 
-            Console.WriteLine("Reduce finished");
+            //Console.WriteLine("Reduce finished");
 
             Console.WriteLine($"Indexing [{startIndex} - {stopIndex}] finished");
 

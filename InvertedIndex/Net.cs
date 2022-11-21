@@ -27,9 +27,9 @@ namespace SearchEngine
             iPEndPoint = new IPEndPoint(addr, port);
         }
 
-        public async Task<Dictionary<int, double>> GetResponse(string message)
+        public async Task<string> GetResponse(string message)
         {
-            Dictionary<int, double> foundDocs = new Dictionary<int, double>();
+            string response = null;
 
             try
             {
@@ -54,9 +54,7 @@ namespace SearchEngine
                     var buffer = new byte[1_024];
                     var received = await client.ReceiveAsync(buffer, SocketFlags.None);
 
-                    var response = Encoding.UTF8.GetString(buffer, 0, received);
-
-
+                    response = Encoding.UTF8.GetString(buffer, 0, received);
 
                     if (response == NetMSG.ACK)
                     {
@@ -68,20 +66,17 @@ namespace SearchEngine
                     // Receive response.
                     buffer = new byte[1_024];
                     received = await client.ReceiveAsync(buffer, SocketFlags.None);
-                    //response = Encoding.UTF8.GetString(buffer, 0, received);
+                    response = Encoding.UTF8.GetString(buffer, 0, received);
 
-                    var binFormatter = new BinaryFormatter();
-                    var mStream = new MemoryStream(buffer);
+                    if (response.IndexOf(NetMSG.EOM) > -1 /* is end of message */)
+                    {
+                        Console.WriteLine(
+                            $"Socket client received response: \"{response}\"");
 
-                    foundDocs = (Dictionary<int, double>)binFormatter.Deserialize(mStream);
-                    break;
+                        response = response.Replace(NetMSG.EOM, "");
 
-                    //if (response.IndexOf(NetMSG.EOM) > -1 /* is end of message */)
-                    //{
-                    //    Console.WriteLine(
-                    //        $"Socket client received response: \"{response}\"");
-                    //    break;
-                    //}
+                        break;
+                    }
                 }
 
             }
@@ -90,7 +85,7 @@ namespace SearchEngine
                 //todo: remove hided exception
             }
 
-            return foundDocs;//response.Replace(NetMSG.EOM, "");
+            return response;
         }
 
     }
@@ -101,7 +96,7 @@ namespace SearchEngine
 
         private HashSet<Socket> connections = new HashSet<Socket>();
 
-        public delegate Dictionary<int, double> GetResponse(string recivedMessage);
+        public delegate string GetResponse(string recivedMessage);
         private GetResponse getResponse;
 
         public bool IsRunning { private get; set; } = false;
@@ -170,19 +165,14 @@ namespace SearchEngine
                     Console.WriteLine(
                         $"Socket server sent acknowledgment: \"{ackMessage}\"");
 
-                    Dictionary<int, double> foundDocs = getResponse(response.Replace(NetMSG.EOM, ""));
-
-                    var binFormatter = new BinaryFormatter();
-                    var mStream = new MemoryStream();
-
-                    binFormatter.Serialize(mStream, foundDocs);
-
-                    var replyBytes = mStream.ToArray();  
+                    var reply = getResponse(response.Replace(NetMSG.EOM, ""));
+                    reply += NetMSG.EOM;
+                    var replyBytes = Encoding.UTF8.GetBytes(reply);
 
                     client.Send(replyBytes, 0);
 
                     Console.WriteLine(
-                       $"Socket server sent response: \"{foundDocs}\"");
+                       $"Socket server sent response: \"{reply}\"");
 
                     //client.Disconnect(false);
 

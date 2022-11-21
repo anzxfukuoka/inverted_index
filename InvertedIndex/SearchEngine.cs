@@ -108,15 +108,17 @@ namespace SearchEngine
 
         }
 
-        public Dictionary<int, double> FindDocsByQuery(string query) 
+        public string FindDocsByQuery(string query) 
         {
-            Dictionary<int, double> queryResults = new Dictionary<int, double>();
+            int bestDocId = -1;
+            string bestIndexerPath = null;
+            double bestRelevance = -1;
 
             Console.WriteLine($"Search query: {query}");
 
             foreach (var indexer in indexedFolders)
             {
-                queryResults = indexer.FindInDocs(query);
+                var queryResults = indexer.FindInDocs(query);
                 Console.WriteLine($"Indexer: {indexer.GetHashCode()}\t Count: {queryResults.Count}");
 
                 if (queryResults.Count <= 0) { continue; }
@@ -125,12 +127,27 @@ namespace SearchEngine
                 var docId = best.Key;
                 var relevance = best.Value;
 
-                Console.WriteLine($"Best match:\tdocId: {docId}, relevance: {relevance}");
-                Console.WriteLine($"\t{InvertedIndex.GetDocContentByIndex(indexer.folderPath, docId).Substring(0, 80)}...");
-                Console.WriteLine();
+                if (relevance > bestRelevance) 
+                {
+                    bestDocId = docId;
+                    bestRelevance = relevance;
+                    bestIndexerPath = indexer.folderPath;
+                }
             }
 
-            return queryResults;
+            var response = "";
+
+            if (bestDocId == -1)
+            {
+                response = $"No results q=\"{query}\"";
+            }
+            else 
+            {
+                response += $"Best match:\tdocId: {bestDocId}, relevance: {bestRelevance}";
+                response += $"\t{InvertedIndex.GetDocContentByIndex(bestIndexerPath, bestDocId).Substring(0, 80)}...";
+            }
+
+            return response;
         }
 
         //public void Query() 
