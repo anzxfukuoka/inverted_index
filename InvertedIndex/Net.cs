@@ -7,20 +7,20 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization.Formatters.Binary;
 
-namespace InvertedIndex
+namespace SearchEngine
 {
     struct NetMSG
     {
         public const string EOM = "<|EOM|>";
         public const string ACK = "<|ACK|>";
     }
-    internal class Client
+    public class Client
     {
         private IPEndPoint iPEndPoint;
 
         private Socket client;
 
-        internal Client(string host, int port)
+        public Client(string host, int port)
         {
             var addr = Dns.GetHostAddresses(host)[0];
 

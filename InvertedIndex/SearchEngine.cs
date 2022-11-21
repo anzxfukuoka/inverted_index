@@ -17,7 +17,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace InvertedIndex
+namespace SearchEngine
 {
     public class SearchEngine
     {

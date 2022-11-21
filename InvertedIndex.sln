@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.3.32929.385
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InvertedIndex", "InvertedIndex\InvertedIndex.csproj", "{2D152B5B-6A08-4B98-8432-CF4DC492E3F2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SearchEngine", "InvertedIndex\SearchEngine.csproj", "{2D152B5B-6A08-4B98-8432-CF4DC492E3F2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SearchClient", "SearchClient\SearchClient.csproj", "{93D9A650-55BF-4D10-B28D-4B6CE4913C11}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{2D152B5B-6A08-4B98-8432-CF4DC492E3F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2D152B5B-6A08-4B98-8432-CF4DC492E3F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2D152B5B-6A08-4B98-8432-CF4DC492E3F2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{93D9A650-55BF-4D10-B28D-4B6CE4913C11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{93D9A650-55BF-4D10-B28D-4B6CE4913C11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{93D9A650-55BF-4D10-B28D-4B6CE4913C11}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{93D9A650-55BF-4D10-B28D-4B6CE4913C11}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
