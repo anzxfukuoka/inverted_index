@@ -152,6 +152,7 @@ namespace SearchEngine
 
                 if (response.IndexOf(NetMSG.EOM) > -1 /* is end of message */)
                 {
+                    
                     Console.WriteLine(
                         $"Socket server received message: \"{response.Replace(NetMSG.EOM, "")}\"");
 

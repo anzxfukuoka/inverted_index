@@ -41,8 +41,6 @@ namespace SearchClient
             {
                 Console.WriteLine($"Search query: {query}");
 
-                //var kostil = Console.ReadLine();
-
                 queryResult = await client.GetResponse(query);
 
                 Console.WriteLine($"Search result: \n{queryResult}");
