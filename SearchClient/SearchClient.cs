@@ -8,7 +8,7 @@ namespace SearchClient
         private static string hostAddress = "127.0.0.1";
         private static int port = 1337;
 
-        static async Task Main(string[] args)
+        public static int Main(string[] args)
         {
             Thread t = null;
 
@@ -21,6 +21,7 @@ namespace SearchClient
             t.Join();
 
             var kostil = Console.ReadLine();
+            return 0;
         }
 
         public static async void TestConn() 
