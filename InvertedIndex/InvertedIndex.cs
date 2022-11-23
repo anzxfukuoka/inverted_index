@@ -8,11 +8,13 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Data.Common;
 using System.Linq;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Transactions;
 
 namespace SearchEngine
 {
@@ -172,7 +174,10 @@ namespace SearchEngine
 
             for (docIndex = startIndex; docIndex < stopIndex; docIndex += step)
             {
-                var t = StartMapThread(folderPath, docIndex, docIndex + step, results);
+                int start = docIndex;
+                int end = docIndex + step >= stopIndex ? stopIndex : docIndex + step; 
+
+                var t = StartMapThread(folderPath, start, end, results);
                 mapThreads.Add(t);
             }
 
@@ -199,11 +204,11 @@ namespace SearchEngine
             {
                 string docContent = GetDocContentByIndex(folderPath, docIndex);
 
-                MapDocument(docIndex, docContent, ref results);
+                MapDocument(docIndex, docContent, results);
             }
         }
 
-        private void MapDocument(int docId, string docContent, ref ConcurrentDictionary<string, ConcurrentBag<WordData>> results)
+        private void MapDocument(int docId, string docContent, ConcurrentDictionary<string, ConcurrentBag<WordData>> results)
         {
             var cleanedText = CleanText(docContent);
 
@@ -242,7 +247,8 @@ namespace SearchEngine
 
             //Console.WriteLine($"doc{docId} mapped, sending data to results...");
 
-            foreach (KeyValuePair<string, WordData> pair in mapData)
+            //foreach (KeyValuePair<string, WordData> pair in mapData)
+            Parallel.ForEach(mapData, pair =>
             {
                 var word = pair.Key;
                 var newWD = pair.Value;
@@ -260,7 +266,7 @@ namespace SearchEngine
                         throw new InvalidOperationException($"{word} data is corrupted");
                     }
                 }
-            }
+            });
 
             //Console.WriteLine($"doc{docId} map finished");
         }
