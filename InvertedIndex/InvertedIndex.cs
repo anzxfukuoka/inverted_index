@@ -95,7 +95,7 @@ namespace SearchEngine
 
         public string folderPath = "";
 
-        public void IndexFolder(string folderPath, int startIndex, int stopIndex)
+        public void IndexFolder(string folderPath, int startIndex, int stopIndex, int processCount = 10)
         {
             this.folderPath = folderPath;
 
@@ -103,14 +103,14 @@ namespace SearchEngine
 
             //Console.WriteLine("Map started");
 
-            var mapedData = Map(folderPath, startIndex, stopIndex);
+            var mapedData = Map(folderPath, startIndex, stopIndex, processCount);
 
             //Console.WriteLine($"Map finished\tdictionary size: {mapedData.Count}");
             Console.WriteLine($"dictionary size: {mapedData.Count}");
 
             //Console.WriteLine("Reduce started");
 
-            var reducedData = Reduce(mapedData);
+            var reducedData = Reduce(mapedData, processCount);
 
             //Console.WriteLine("Reduce finished");
 
