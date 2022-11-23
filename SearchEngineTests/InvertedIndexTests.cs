@@ -10,7 +10,7 @@ namespace SearchEngineTests
 {
     internal class InvertedIndexTests
     {
-        public static void TestFolderIndexingTime(string path, int startIndex, int stopIndex, int processCount) 
+        public static long TestFolderIndexingTime(string path, int startIndex, int stopIndex, int processCount) 
         {
             var stopwatch = new Stopwatch();
             var indexer = new InvertedIndex();
@@ -21,7 +21,11 @@ namespace SearchEngineTests
 
             stopwatch.Stop();
 
-            Console.WriteLine(stopwatch.ElapsedTicks);
+            long result = stopwatch.ElapsedMilliseconds;
+
+            Console.WriteLine($"Time ms: \t{result}");
+
+            return result;
         }
 
     }
