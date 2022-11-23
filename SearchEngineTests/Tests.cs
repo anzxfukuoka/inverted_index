@@ -10,6 +10,9 @@ using System.IO;
 
 namespace SearchEngineTests
 {
+    /// <summary>
+    /// Tests for SearchEngine and SearchClient projects
+    /// </summary>
     internal class Tests
     {
         static async Task Main(string[] args)

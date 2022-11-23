@@ -4,19 +4,7 @@
  * Program.cs
  */
 
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.Tracing;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Reflection.Metadata;
-using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace SearchEngine
 {
@@ -50,8 +38,14 @@ namespace SearchEngine
 
         #endregion
 
-        private Server? server;
+        /// <summary>
+        /// TCP server for net access to search engine
+        /// </summary>
+        private Server server;
 
+        /// <summary>
+        /// List of indexers
+        /// </summary>
         private List<InvertedIndex> indexedFolders = new List<InvertedIndex>();
 
         public static int Main(string[] args)
@@ -68,12 +62,21 @@ namespace SearchEngine
             return 0;
         }
 
+        /// <summary>
+        /// Starts serach engines tpc server
+        /// </summary>
+        /// <param name="serverAddress"> Host address </param>
+        /// <param name="serverPort"> Listning port </param>
         public void StartServer(string serverAddress = "127.0.0.1", int serverPort = 1337) 
         {
             server = new Server(serverAddress, serverPort, FindDocsByQuery);
             server.Start();
         }
 
+        /// <summary>
+        /// Indexes folders in list
+        /// </summary>
+        /// <param name="processCount"> Count of indexer threads </param>
         public void Index(int processCount = 10) 
         {
             Console.WriteLine("++++++++++ INDEXING STARTED ++++++++++");
@@ -100,6 +103,11 @@ namespace SearchEngine
 
         }
 
+        /// <summary>
+        /// Searches query in documents in indexed folders
+        /// </summary>
+        /// <param name="query"> Search query </param>
+        /// <returns> Formated query result </returns>
         public string FindDocsByQuery(string query) 
         {
             int bestDocId = -1;

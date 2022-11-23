@@ -14,6 +14,9 @@ using System.Threading.Tasks;
 
 namespace SearchEngineTests
 {
+    /// <summary>
+    /// Tests for SearchClient project
+    /// </summary>
     internal class SearchClientTests
     {
         private static string multiClientAccessResultsPath =

@@ -14,6 +14,9 @@ using System.Threading.Tasks;
 
 namespace SearchEngineTests
 {
+    /// <summary>
+    /// Tests for InvertedIndex class of SearchEngine project
+    /// </summary>
     internal class InvertedIndexTests
     {
         #region Indexing data params
