@@ -64,6 +64,8 @@ namespace SearchEngineTests
                 List<string> results = new List<string>();
                 var indexer = new InvertedIndex();
 
+                results.Add(processCount.ToString());
+
                 foreach (var path in folderPaths_125)
                 {
                     Console.WriteLine($"folder {path} \t processCount = {processCount}");
