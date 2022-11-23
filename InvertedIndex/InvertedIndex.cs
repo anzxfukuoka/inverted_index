@@ -86,10 +86,13 @@ namespace SearchEngine
         }
     }
 
-    //todo: add docs
+    /// <summary>
+    /// Multi-threading document indexer 
+    /// implemented via MapReduce
+    /// </summary>
     public class InvertedIndex
     {
-        private const string QUERY_FORMAT = "{0}_*.txt";
+        private const string FILE_SEARCH_FORMAT = "{0}_*.txt";
 
         public ConcurrentDictionary<string, WordData> indexedData { get; private set; }
 
@@ -97,6 +100,14 @@ namespace SearchEngine
 
         public string folderPath = "";
 
+        /// <summary>
+        /// Builds inverted index for words in each file fit FILE_SEARCH_FORMAT 
+        /// (non reqursive)
+        /// </summary>
+        /// <param name="folderPath"> Path to indexing folder </param>
+        /// <param name="startIndex"> Index of first file </param>
+        /// <param name="stopIndex"> Index of last file </param>
+        /// <param name="processCount"> Count of threads on Map and Reduce stages</param>
         public void IndexFolder(string folderPath, int startIndex, int stopIndex, int processCount = 10)
         {
             this.folderPath = folderPath;
@@ -123,10 +134,15 @@ namespace SearchEngine
             indexedData = reducedData;
         }
 
-        //<id, relavance>
-        public Dictionary<int, double> FindInDocs(string queryWord)
+        /// <summary>
+        /// For every word in query finds in indexed documents 
+        /// list of ids of relevant to this word documents.  
+        /// </summary>
+        /// <param name="query"> query to search </param>
+        /// <returns> Sorted descending by relevance {int id: double relavance} </returns>
+        public Dictionary<int, double> FindInDocs(string query)
         {
-            var words = CleanText(queryWord).Split(" ");
+            var words = CleanText(query).Split(" ");
 
             var foundDocuments = new Dictionary<int, double>();
 
@@ -161,6 +177,14 @@ namespace SearchEngine
             return sorted;
         }
 
+        /// <summary>
+        /// Map stage of MapReduce
+        /// </summary>
+        /// <param name="folderPath"> Path to indexing folder </param>
+        /// <param name="startIndex"> Index of first file </param>
+        /// <param name="stopIndex"> Index of last file </param>
+        /// <param name="processCount"> Count of threads </param>
+        /// <returns> Documents maped to words {string word: WordData data}</returns>
         private ConcurrentDictionary<string, ConcurrentBag<WordData>> Map(string folderPath, int startIndex, int stopIndex, int processCount = 10)
         {
             var mapThreads = new List<Thread>();
@@ -189,6 +213,14 @@ namespace SearchEngine
             return results;
         }
 
+        /// <summary>
+        /// Starts new Map process
+        /// </summary>
+        /// <param name="folderPath"> Path to indexing folder </param>
+        /// <param name="startIndex"> Index of first file </param>
+        /// <param name="stopIndex"> Index of last file </param>
+        /// <param name="results"> Dictionary for mapping results {string word: WordData data} </param>
+        /// <returns></returns>
         private Thread StartMapThread(string folderPath, int startIndex, int stopIndex, ConcurrentDictionary<string, ConcurrentBag<WordData>> results)
         {
             var t = new Thread(() => MapProccess(folderPath, startIndex, stopIndex, results));
@@ -198,6 +230,13 @@ namespace SearchEngine
             return t;
         }
 
+        /// <summary>
+        /// Map thread inner function
+        /// </summary>
+        /// <param name="folderPath"> Path to indexing folder </param>
+        /// <param name="startIndex"> Index of first file </param>
+        /// <param name="stopIndex"> Index of last file </param>
+        /// <param name="results"> Dictionary for mapping results {string word: WordData data} </param>
         private void MapProccess(string folderPath, int startIndex, int stopIndex, ConcurrentDictionary<string, ConcurrentBag<WordData>> results) 
         {
             for (int docIndex = startIndex; docIndex < stopIndex; docIndex++)
@@ -208,6 +247,13 @@ namespace SearchEngine
             }
         }
 
+        /// <summary>
+        /// Maps document to words it's contains 
+        /// </summary>
+        /// <param name="docId"> Index of document </param>
+        /// <param name="docContent"> Document content </param>
+        /// <param name="results"> Dictionary for mapping results {string word: WordData data} </param>
+        /// <exception cref="InvalidOperationException"></exception>
         private void MapDocument(int docId, string docContent, ConcurrentDictionary<string, ConcurrentBag<WordData>> results)
         {
             var cleanedText = CleanText(docContent);
@@ -271,6 +317,12 @@ namespace SearchEngine
             //Console.WriteLine($"doc{docId} map finished");
         }
 
+        /// <summary>
+        /// Reduce stage of MapReduce
+        /// </summary>
+        /// <param name="mapedData"> Dictionary of mapped data {string word: WordData data} </param>
+        /// <param name="processCount"> Count of threads </param>
+        /// <returns></returns>
         private ConcurrentDictionary<string, WordData> Reduce(ConcurrentDictionary<string, ConcurrentBag<WordData>> mapedData, int processCount = 10)
         {
             var reduceThreads = new List<Thread>();
@@ -309,6 +361,12 @@ namespace SearchEngine
             return results;
         }
 
+        /// <summary>
+        /// Starts new Reduce process
+        /// </summary>
+        /// <param name="data"> Dictionary of mapped data {string word: WordData data} </param>
+        /// <param name="results"> Dictionary for reducing results {string word: WordData data} </param>
+        /// <returns></returns>
         private Thread StartReduceThread(ConcurrentDictionary<string, ConcurrentBag<WordData>> data, ConcurrentDictionary<string, WordData> results)
         {
             Thread t = new Thread(() => ReduceProcess(data, results));
@@ -317,6 +375,11 @@ namespace SearchEngine
             return t;
         }
 
+        /// <summary>
+        /// Reduce thread inner function
+        /// </summary>
+        /// <param name="data"> Dictionary of mapped data {string word: WordData data} </param>
+        /// <param name="results"> Dictionary for reducing results {string word: WordData data} </param>
         public void ReduceProcess(ConcurrentDictionary<string, ConcurrentBag<WordData>> data, ConcurrentDictionary<string, WordData> results) 
         {
             foreach (var pair in data)
@@ -324,11 +387,17 @@ namespace SearchEngine
                 var word = pair.Key;
                 var docList = pair.Value;
 
-                ReduceProcessFunc(word, docList, results);
+                ReduceWord(word, docList, results);
             }
         }
 
-        public void ReduceProcessFunc(string word, ConcurrentBag<WordData> data, ConcurrentDictionary<string, WordData> results)
+        /// <summary>
+        /// Reduces spicific word
+        /// </summary>
+        /// <param name="word"> Word </param>
+        /// <param name="data"> Documents data list </param>
+        /// <param name="results"> Dictionary for reducing results {string word: WordData data} </param>
+        public void ReduceWord(string word, ConcurrentBag<WordData> data, ConcurrentDictionary<string, WordData> results)
         {
             //Console.WriteLine($"word [{word}] reduce started");
 
@@ -353,9 +422,16 @@ namespace SearchEngine
         }
 
         // todo: move to utils
+        /// <summary>
+        /// Founds document by index
+        /// </summary>
+        /// <param name="folderPath"> Path to folder </param>
+        /// <param name="index"> Document index </param>
+        /// <returns> Document content </returns>
+        /// <exception cref="FileNotFoundException"></exception>
         public static string GetDocContentByIndex(string folderPath, int index)
         {
-            string fileQuery = String.Format(QUERY_FORMAT, index);
+            string fileQuery = String.Format(FILE_SEARCH_FORMAT, index);
 
             DirectoryInfo folder = new DirectoryInfo(folderPath);
             FileInfo[] fileEntries = folder.GetFiles(fileQuery);
@@ -378,6 +454,12 @@ namespace SearchEngine
             return text;
         }
 
+        // todo: move to utils
+        /// <summary>
+        /// Cleans texts from extra symbols
+        /// </summary>
+        /// <param name="text"></param>
+        /// <returns></returns>
         public static string CleanText(string text)
         {
             string cleanedText = text.ToLower();
