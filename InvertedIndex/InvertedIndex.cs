@@ -1,7 +1,7 @@
 ﻿/*
  * Айайа Г. ДА-92
  * Вар 1 (34)
- * InvertedIndex.cs
+ * SearchEngine.cs
  */
 
 using System;

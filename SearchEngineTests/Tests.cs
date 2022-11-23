@@ -1,4 +1,10 @@
-﻿using SearchEngine;
+﻿/*
+ * Айайа Г. ДА-92
+ * Вар 1 (34)
+ * Tests.cs
+ */
+
+using SearchEngine;
 using System.Diagnostics;
 using System.IO;
 

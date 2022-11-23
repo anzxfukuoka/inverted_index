@@ -1,8 +1,17 @@
-﻿using SearchEngine;
+﻿/*
+ * Айайа Г. ДА-92
+ * Вар 1 (34)
+ * SearchClient.cs
+ */
+
+using SearchEngine;
 using System;
 
 namespace SearchClient
 {
+    /// <summary>
+    /// Network client for SearchEngine 
+    /// </summary>
     internal class SearchClient
     {
         private static string hostAddress = "127.0.0.1";

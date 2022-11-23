@@ -1,4 +1,10 @@
-﻿using SearchEngine;
+﻿/*
+ * Айайа Г. ДА-92
+ * Вар 1 (34)
+ * InvertedIndexTests.cs
+ */
+
+using SearchEngine;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
