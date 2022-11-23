@@ -85,13 +85,13 @@ namespace SearchEngine
             docs = new List<Document>() { new Document(firstDocId, firstDocOccurrsCount, firstDocWordCount) };
         }
     }
-    
+
     //todo: add docs
     public class InvertedIndex
     {
         private const string QUERY_FORMAT = "{0}_*.txt";
 
-        private ConcurrentDictionary<string, WordData> indexedData;
+        public ConcurrentDictionary<string, WordData> indexedData { get; private set; }
 
         private int indexedDocumentsCount = 0;
 
