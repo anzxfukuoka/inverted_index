@@ -50,10 +50,9 @@ namespace SearchEngine
 
         #endregion
 
+        private Server server;
+
         private List<InvertedIndex> indexedFolders = new List<InvertedIndex>();
-        
-        private static string hostAddress = "127.0.0.1";
-        private static int port = 1337;
 
         public static int Main(string[] args)
         {
@@ -61,8 +60,7 @@ namespace SearchEngine
 
             searchEngine.Index();
 
-            Server server = new Server(hostAddress, port, searchEngine.FindDocsByQuery);
-            server.Start();
+            searchEngine.StartServer();
 
             //Thread.Sleep(60_000);
             //server.Stop();
@@ -70,7 +68,13 @@ namespace SearchEngine
             return 0;
         }
 
-        public void Index() 
+        public void StartServer(string serverAddress = "127.0.0.1", int serverPort = 1337) 
+        {
+            server = new Server(serverAddress, serverPort, FindDocsByQuery);
+            server.Start();
+        }
+
+        public void Index(int processCount = 10) 
         {
             Console.WriteLine("++++++++++ INDEXING STARTED ++++++++++");
 
@@ -78,7 +82,7 @@ namespace SearchEngine
             {
                 var indexer = new InvertedIndex();
 
-                indexer.IndexFolder(folderPath, START_INDEX_125, STOP_INDEX_125);
+                indexer.IndexFolder(folderPath, START_INDEX_125, STOP_INDEX_125, processCount);
 
                 indexedFolders.Add(indexer);
             }
@@ -87,7 +91,7 @@ namespace SearchEngine
             {
                 var indexer = new InvertedIndex();
 
-                indexer.IndexFolder(folderPath, START_INDEX_500, STOP_INDEX_500);
+                indexer.IndexFolder(folderPath, START_INDEX_500, STOP_INDEX_500, processCount);
 
                 indexedFolders.Add(indexer);
             }
