@@ -50,7 +50,7 @@ namespace SearchEngine
 
         #endregion
 
-        private Server server;
+        private Server? server;
 
         private List<InvertedIndex> indexedFolders = new List<InvertedIndex>();
 
