@@ -66,7 +66,10 @@ namespace SearchEngineTests
 
             Task csvWritingTask = Task.CompletedTask;
 
-            for (int i = 0; i < 6; i++)
+            int power = 6; // processCount range: [1, 2^power]
+            int triesCount = 4; // tries to build index of the same folder
+
+            for (int i = 0; i < power; i++) 
             {
                 var processCount = (int)Math.Pow(2, i);
 
@@ -77,18 +80,34 @@ namespace SearchEngineTests
 
                 foreach (var path in folderPaths_125)
                 {
-                    Console.WriteLine($"folder {path} \t processCount = {processCount}");
-                    var result = TestFolderIndexingTime(ref indexer, path, START_INDEX_125, STOP_INDEX_125, processCount);
+                    long result = 0;
+
+                    for (int k = 0; k < triesCount; k++)
+                    {                        
+                        Console.WriteLine($"folder {path} \t processCount = {processCount} try: {k}");
+                        result += TestFolderIndexingTime(ref indexer, path, START_INDEX_125, STOP_INDEX_125, processCount);
+                        Console.WriteLine();
+                    }
+
+                    result /= triesCount;
+
                     results.Add(result.ToString());
-                    Console.WriteLine();
                 }
 
                 foreach (var path in folderPaths_500)
                 {
-                    Console.WriteLine($"folder {path} \t processCount = {processCount}");
-                    var result = TestFolderIndexingTime(ref indexer, path, START_INDEX_500, STOP_INDEX_500, processCount);
+                    long result = 0;
+
+                    for (int k = 0; k < triesCount; k++) 
+                    {
+                        Console.WriteLine($"folder {path} \t processCount = {processCount} try: {k}");
+                        result += TestFolderIndexingTime(ref indexer, path, START_INDEX_500, STOP_INDEX_500, processCount);
+                        Console.WriteLine();
+                    }
+
+                    result /= triesCount;
+
                     results.Add(result.ToString());
-                    Console.WriteLine();
                 }
 
                 await csvWritingTask;

@@ -52,7 +52,7 @@ namespace SearchEngine
         {
             SearchEngine searchEngine = new SearchEngine();
 
-            searchEngine.Index();
+            searchEngine.Index(4);
 
             searchEngine.StartServer();
 
