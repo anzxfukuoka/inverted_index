@@ -12,14 +12,16 @@ namespace SearchClient
     /// <summary>
     /// Network client for SearchEngine 
     /// </summary>
-    internal class SearchClient
+    public class SearchClient
     {
         private static string hostAddress = "127.0.0.1";
         private static int port = 1337;
 
+        private static Client client;
+
         public static async Task Main(string[] args)
         {
-            Client client = new Client(hostAddress, port);
+            client = new Client(hostAddress, port);
 
             while (true)
             {
