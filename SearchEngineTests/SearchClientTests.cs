@@ -46,7 +46,7 @@ namespace SearchEngineTests
 
                 int clientCount = (int)Math.Pow(2, i);
 
-                for (int c = 1; c < clientCount; c++)
+                for (int c = 1; c <= clientCount; c++)
                 {
                     t = new Thread(() => TestClientConn(hostAddress, port, responses));
                     t.Start();
@@ -64,7 +64,7 @@ namespace SearchEngineTests
 
         }
 
-        public static async void TestClientConn(string hostAddress, int port, List<long> responses)
+        public static void TestClientConn(string hostAddress, int port, List<long> responses)
         {
             Client client = new Client(hostAddress, port);
 
@@ -77,21 +77,19 @@ namespace SearchEngineTests
             searchQueries.Enqueue("Vampire horror");
 
             string queryResult = "";
-            Task<string> queryTask;
 
             while (searchQueries.TryDequeue(out string query))
             {
-                Console.WriteLine($"Client [{Thread.CurrentThread.Name}] sending query [{query}]");
+                Console.WriteLine($"Client [{Thread.CurrentThread.ManagedThreadId}] sending query [{query}]");
 
                 var sw = new Stopwatch();
                 sw.Start();
 
-                queryTask = client.GetResponse(query);
-                queryResult = await queryTask;
+                queryResult = client.GetResponse(query).Result;
 
                 sw.Stop();
 
-                Console.WriteLine($"Client [{Thread.CurrentThread.Name}] recived response on query [{query}]: {queryResult.Split('\n')[0]}...");
+                Console.WriteLine($"Client [{Thread.CurrentThread.ManagedThreadId}] recived response on query [{query}]: {queryResult.Split('\n')[0]}...");
 
                 responses.Add(sw.ElapsedMilliseconds);
             }

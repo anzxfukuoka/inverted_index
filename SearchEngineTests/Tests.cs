@@ -24,6 +24,7 @@ namespace SearchEngineTests
         }
     }
 
+    // todo: move to utils
     public class CSVWriter 
     {
         public static async Task WriteCSVLineAsync(string path, List<string> values, char sep = ';', string end = "\n", bool rewrite = false)
