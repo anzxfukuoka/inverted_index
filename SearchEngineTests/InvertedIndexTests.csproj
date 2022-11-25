@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\InvertedIndex\SearchEngine.csproj" />
+    <ProjectReference Include="..\SearchEngine\SearchEngine.csproj" />
   </ItemGroup>
 
 </Project>

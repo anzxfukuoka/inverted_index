@@ -66,7 +66,7 @@ namespace SearchEngineTests
 
             Task csvWritingTask = Task.CompletedTask;
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 6; i++)
             {
                 var processCount = (int)Math.Pow(2, i);
 

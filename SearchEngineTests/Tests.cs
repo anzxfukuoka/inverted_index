@@ -17,8 +17,8 @@ namespace SearchEngineTests
     {
         static async Task Main(string[] args)
         {
-            //await InvertedIndexTests.IndexingTest();
-            await SearchClientTests.MultiClientAccessTest();
+            await InvertedIndexTests.IndexingTest();
+            //await SearchClientTests.MultiClientAccessTest();
 
             var kostil = Console.ReadLine();
         }
