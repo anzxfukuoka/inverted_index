@@ -81,14 +81,14 @@ namespace SearchEngine
         {
             Console.WriteLine("++++++++++ INDEXING STARTED ++++++++++");
 
-            foreach (var folderPath in folderPaths_125)
-            {
-                var indexer = new InvertedIndex();
+            //foreach (var folderPath in folderPaths_125)
+            //{
+            //    var indexer = new InvertedIndex();
 
-                indexer.IndexFolder(folderPath, START_INDEX_125, STOP_INDEX_125, processCount);
+            //    indexer.IndexFolder(folderPath, START_INDEX_125, STOP_INDEX_125, processCount);
 
-                indexedFolders.Add(indexer);
-            }
+            //    indexedFolders.Add(indexer);
+            //}
 
             foreach (var folderPath in folderPaths_500)
             {
